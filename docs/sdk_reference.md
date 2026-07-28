@@ -15,8 +15,8 @@ pip install tunnel-sdk
 ```python
 from tunnel_sdk import Tunnel
 
-# Assumes you have TUNNEL_GATEWAY, TUNNEL_API_KEY, TUNNEL_TARGET_PATH, 
-# and TUNNEL_LOCAL_URL set in your environment variables.
+# Assumes you have TUNNEL_API_KEY and TUNNEL_TARGET_PATH set in your
+# environment variables. (Gateway and Port default to the Render host and 5000).
 with Tunnel.from_env() as tunnel:
     print("Tunnel is running!")
     # Blocks forever
@@ -31,10 +31,11 @@ You can configure the tunnel using code, environment variables, or a mix of both
 
 | Variable | Description |
 |----------|-------------|
-| `TUNNEL_GATEWAY` | The WebSocket URL (e.g., `wss://example.com`) |
 | `TUNNEL_API_KEY` | Secret API key provided by the gateway |
 | `TUNNEL_TARGET_PATH` | The path prefix to intercept (e.g., `/api`) |
-| `TUNNEL_LOCAL_URL` | The local destination URL (e.g., `http://127.0.0.1:5000`) |
+| `TUNNEL_PORT` | The local port to proxy to (default: `5000`) |
+| `TUNNEL_GATEWAY` | The WebSocket URL (default: `wss://tunnel-g09n.onrender.com`) |
+| `TUNNEL_LOCAL_URL` | Optional full URL override (e.g., `http://127.0.0.1:5000`) |
 
 ### Constructor Parameters
 
@@ -42,10 +43,10 @@ You can configure the tunnel using code, environment variables, or a mix of both
 from tunnel_sdk import Tunnel
 
 tunnel = Tunnel(
-    gateway="wss://example.com",
     api_key="secret-key",
     target_path="/api",
-    local_url="http://127.0.0.1:5000",
+    port=5000,                  # Defaults to 5000
+    gateway="wss://tunnel-g09n.onrender.com", 
     max_reconnects=-1,          # -1 for infinite retries
     reconnect_base_delay=1.0,   # Seconds
     reconnect_max_delay=60.0    # Seconds
@@ -56,10 +57,10 @@ tunnel = Tunnel(
 
 ### `Tunnel` Class
 
-#### `tunnel.run(local_url=None)`
+#### `tunnel.run(port=None, local_url=None)`
 Starts the tunnel connection and **blocks** the current thread until the tunnel is stopped or interrupted.
 
-#### `tunnel.start(local_url=None)`
+#### `tunnel.start(port=None, local_url=None)`
 Starts the tunnel connection in a **background thread**. The method returns immediately.
 
 #### `tunnel.stop()`

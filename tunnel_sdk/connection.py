@@ -97,7 +97,18 @@ class TunnelConnection:
     def _on_open(self, ws):
         self.connected = True
         self.events.emit("on_connect")
-        logger.info("Tunnel connected successfully.")
+        
+        # Determine the public HTTP URL for user convenience
+        base_url = self.config.gateway.replace("wss://", "https://").replace("ws://", "http://").rstrip("/")
+        public_url = f"{base_url}{self.config.target_path}"
+        local_url = self.config.local_url or "your local server"
+        
+        print("\n" + "="*60)
+        print("TUNNEL CONNECTED SUCCESSFULLY!")
+        print(f"Public URL : {public_url}")
+        print(f"Forwarding to : {local_url}")
+        print("="*60 + "\n")
+        logger.info(f"Tunnel connected successfully. Proxying {public_url} -> {local_url}")
 
     def _on_message(self, ws, message):
         try:
@@ -110,8 +121,10 @@ class TunnelConnection:
         
         # Check for immediate connection error frame
         if "error" in msg:
-            logger.error(f"Gateway Error: {msg['error']}")
-            self.events.emit("on_error", Exception(msg["error"]))
+            error_msg = msg['error']
+            logger.error(f"Gateway Error: {error_msg}")
+            print(f"\nTUNNEL ERROR: {error_msg}\n")
+            self.events.emit("on_error", Exception(error_msg))
             return
 
         if mtype == "ping":

@@ -19,21 +19,27 @@ __version__ = "1.0.0"
 logger = logging.getLogger("tunnel_sdk")
 
 class Tunnel:
-    def __init__(self, gateway: str = None, api_key: str = None, target_path: str = None, local_url: str = None, **kwargs):
+    def __init__(self, api_key: str = None, target_path: str = None, gateway: str = None, port: int = None, local_url: str = None, **kwargs):
         # Support default from env if not provided
-        if gateway is None: gateway = os.environ.get("TUNNEL_GATEWAY")
+        if gateway is None: gateway = os.environ.get("TUNNEL_GATEWAY", "wss://tunnel-g09n.onrender.com")
         if api_key is None: api_key = os.environ.get("TUNNEL_API_KEY")
         if target_path is None: target_path = os.environ.get("TUNNEL_TARGET_PATH")
+        
+        if port is None: port = int(os.environ.get("TUNNEL_PORT", 5000))
         if local_url is None: local_url = os.environ.get("TUNNEL_LOCAL_URL")
         
-        if not gateway or not api_key or not target_path:
-            raise ValueError("gateway, api_key, and target_path must be provided or set in environment variables")
+        if not local_url:
+            local_url = f"http://127.0.0.1:{port}"
+        
+        if not api_key or not target_path:
+            raise ValueError("api_key and target_path must be provided or set in environment variables")
             
         self.config = TunnelConfig(
-            gateway=gateway,
             api_key=api_key,
             target_path=target_path,
+            gateway=gateway,
             local_url=local_url,
+            port=port,
             **kwargs
         )
         self.stats = TunnelStats()
@@ -50,10 +56,11 @@ class Tunnel:
     def from_env(cls, **kwargs) -> "Tunnel":
         config = TunnelConfig.from_env()
         return cls(
-            gateway=config.gateway,
             api_key=config.api_key,
             target_path=config.target_path,
+            gateway=config.gateway,
             local_url=config.local_url,
+            port=config.port,
             **kwargs
         )
 
@@ -65,14 +72,17 @@ class Tunnel:
         """Unregister an event callback."""
         self.events.off(event, callback)
 
-    def start(self, local_url: Optional[str] = None) -> None:
+    def start(self, port: Optional[int] = None, local_url: Optional[str] = None) -> None:
         """Starts the tunnel in a background thread."""
         if self._is_running:
             return
             
         url_to_use = local_url or self.config.local_url
+        if port is not None:
+            url_to_use = f"http://127.0.0.1:{port}"
+            
         if not url_to_use:
-            raise ValueError("local_url must be provided either in Tunnel() or start()")
+            raise ValueError("local_url or port must be provided either in Tunnel() or start()")
             
         self._is_running = True
         self._dispatcher = RequestDispatcher(
@@ -87,9 +97,9 @@ class Tunnel:
         self._main_thread.start()
         logger.info("Tunnel background thread started.")
 
-    def run(self, local_url: Optional[str] = None) -> None:
+    def run(self, port: Optional[int] = None, local_url: Optional[str] = None) -> None:
         """Starts the tunnel and blocks the current thread until stopped."""
-        self.start(local_url)
+        self.start(port=port, local_url=local_url)
         self.wait()
 
     def stop(self) -> None:
@@ -107,12 +117,12 @@ class Tunnel:
         if self._main_thread and self._main_thread.is_alive():
             self._main_thread.join(timeout=5.0)
 
-    def restart(self, local_url: Optional[str] = None) -> None:
+    def restart(self, port: Optional[int] = None, local_url: Optional[str] = None) -> None:
         """Restarts the tunnel connection."""
         self.stop()
         # Wait a moment for resources to clean up
         time.sleep(1)
-        self.start(local_url)
+        self.start(port=port, local_url=local_url)
 
     def wait(self) -> None:
         """Blocks until the tunnel is stopped."""
