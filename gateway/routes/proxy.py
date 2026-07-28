@@ -53,8 +53,16 @@ def catch_all_proxy(path):
     Supports both single-message and streaming protocols depending on
     the request body size and transfer encoding.
     """
-    # Guard: never shadow admin or wake routes
-    if path.startswith("admin/") or path == "wake":
+    # Guard: never shadow admin, wake, or web UI routes
+    if (
+        path.startswith("admin/")
+        or path == "admin"
+        or path == "wake"
+        or path == "index.html"
+        or path == "dashboard"
+        or path.startswith("static/")
+        or path == "favicon.ico"
+    ):
         return abort(404)
 
     req_id = str(uuid.uuid4())

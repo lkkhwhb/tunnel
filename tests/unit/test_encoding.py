@@ -82,3 +82,29 @@ class TestRoundTrip:
         import json
         payload = json.dumps({"key": "value", "number": 42}).encode()
         assert b64_decode(b64_encode(payload)) == payload
+
+
+class TestPayloadEncoding:
+    """Tests for encode_payload and decode_payload."""
+
+    def test_small_payload_not_compressed(self):
+        from gateway.utils.encoding import encode_payload, decode_payload
+        data = b"small data"
+        encoded, compressed = encode_payload(data, compress=True)
+        assert not compressed
+        assert decode_payload(encoded, compressed=compressed) == data
+
+    def test_large_payload_compressed(self):
+        from gateway.utils.encoding import encode_payload, decode_payload
+        data = b"repetitive string " * 50
+        encoded, compressed = encode_payload(data, compress=True)
+        assert compressed
+        assert len(encoded) < len(data)
+        assert decode_payload(encoded, compressed=compressed) == data
+
+    def test_empty_payload(self):
+        from gateway.utils.encoding import encode_payload, decode_payload
+        encoded, compressed = encode_payload(b"", compress=True)
+        assert encoded == ""
+        assert not compressed
+        assert decode_payload("", compressed=False) == b""

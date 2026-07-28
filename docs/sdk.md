@@ -39,7 +39,9 @@ stateDiagram-v2
 ### 1. Connect
 
 ```
-WebSocket URL: wss://<gateway-host>/ws/tunnel?api_key=<key>&target_path=/myapp&protocol_version=1.0
+WebSocket URL: wss://<gateway-host>/ws/tunnel?target_path=/myapp&protocol_version=1.0
+Headers:
+  Authorization: Bearer <key>
 ```
 
 ### 2. Handle Incoming Messages
@@ -63,14 +65,15 @@ The SDK must handle these message types from the gateway:
   "req_id": "<from request>",
   "status": 200,
   "headers": {"Content-Type": "application/json"},
-  "body": "<base64 encoded>"
+  "body": "<base64 encoded>",
+  "compressed": false
 }
 ```
 
 **Streaming response:**
 ```json
 {"type": "res_start", "req_id": "...", "status": 200, "headers": {...}}
-{"type": "res_chunk", "req_id": "...", "data": "<base64 chunk>"}
+{"type": "res_chunk", "req_id": "...", "data": "<base64 chunk>", "compressed": true}
 {"type": "res_end", "req_id": "..."}
 ```
 
@@ -99,16 +102,16 @@ Re-register the tunnel after reconnecting — the gateway does not persist tunne
 
 ## API Key Requirements
 
-The SDK must supply a valid secret API key via the `api_key` query parameter when establishing the WebSocket connection. This key must match the `TUNNEL_API_KEY` configured on the gateway in `gateway/config/.env`.
+The SDK must supply a valid secret API key via the HTTP `Authorization: Bearer <key>` header (or `X-API-Key` header) when establishing the WebSocket connection. This key must match the `TUNNEL_API_KEY` configured on the gateway in `gateway/config/.env`.
 
 If an invalid API key is provided, the gateway will send an error frame and close the connection immediately.
 
 ## Encoding Convention
 
-All request and response bodies are transferred as **base64-encoded strings** within JSON frames. The SDK must:
+All request and response bodies are transferred as **base64-encoded strings** within JSON frames. When payloads exceed 64 bytes and compression is beneficial, zlib compression is applied before base64 encoding, and the frame includes `"compressed": true`. The SDK must:
 
-- Decode incoming `body` and `data` fields with standard base64
-- Encode outgoing `body` and `data` fields with standard base64
+- Decode incoming `body` and `data` fields with standard base64, then decompress with zlib if `"compressed": true`
+- Optionally compress outgoing `body` and `data` fields with zlib before encoding with base64 and setting `"compressed": true`
 
 ## Error Handling
 
@@ -135,8 +138,8 @@ The protocol version is negotiated at connection time via the `protocol_version`
 | SDK Version | Gateway Version | Compatible |
 |-------------|-----------------|------------|
 | 1.0 | 1.0 | ✅ |
-| 1.0 | 2.0 | ❌ Rejected |
-| 2.0 | 1.0 | ❌ Rejected |
+| 1.0 | 0.9 | ❌ Rejected |
+| 0.9 | 1.0 | ❌ Rejected |
 
 Future protocol versions will be documented with migration guides.
 
@@ -154,7 +157,7 @@ Future protocol versions will be documented with migration guides.
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Binary frame support | Planned | Send raw binary WebSocket frames instead of base64-in-JSON |
-| Compression | Planned | Per-message WebSocket compression (permessage-deflate) |
+| Compression | Implemented (v1.2) | zlib payload compression in JSON frames |
 | Multi-region failover | Planned | Automatic failover between gateway instances |
 | Connection resumption | Planned | Resume tunnels after brief disconnections without re-auth |
 | Metrics export | Planned | Prometheus-compatible `/metrics` endpoint |

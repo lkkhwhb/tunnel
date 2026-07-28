@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Gateway — Secure Admin Dashboard</title>
+    <meta name="description" content="Monitor active WebSocket tunnels, inspect real-time server telemetry, and configure runtime gateway settings.">
+    <!-- Google Fonts: Roboto & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Vanilla CSS Design System -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header id="app-header" class="header">
+        <div class="header-brand">
+            <div class="brand-icon">
+                <i class="bi bi-shield-lock-fill"></i>
+            </div>
+            <div class="brand-text">
+                <h1 id="page-title">Tunnel Gateway</h1>
+                <span class="brand-subtitle">Secure WebSocket Multiplexer</span>
+            </div>
+        </div>
+
+        <div class="header-controls">
+            <!-- Auto Refresh Toggle -->
+            <div class="toggle-wrapper" title="Poll status every 2 seconds">
+                <label for="auto-refresh-toggle" class="toggle-label">
+                    <i class="bi bi-arrow-repeat"></i> Auto-Refresh
+                </label>
+                <label class="switch">
+                    <input type="checkbox" id="auto-refresh-toggle" checked>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <!-- Server Uptime Badge -->
+            <div id="status-badge-container" class="status-badge online">
+                <span class="status-dot"></span>
+                <span id="server-status-text">Online</span>
+                <span id="server-uptime" class="uptime-text">0s</span>
+            </div>
+
+            <!-- API Key Auth Button -->
+            <button id="auth-btn" class="btn btn-auth" aria-label="Configure API Key">
+                <i class="bi bi-key-fill"></i>
+                <span id="auth-btn-text">Authenticate</span>
+                <span id="auth-status-indicator" class="auth-dot unauth"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Content -->
+    <main id="main-content" class="container">
+        <!-- Telemetry & Health Overview Section -->
+        <section id="telemetry-section" class="dashboard-section" aria-labelledby="telemetry-heading">
+            <div class="section-header">
+                <h2 id="telemetry-heading" class="section-title">
+                    <i class="bi bi-activity"></i> Live Telemetry & System Health
+                </h2>
+                <span id="last-updated-timestamp" class="timestamp">Updated just now</span>
+            </div>
+
+            <div class="metrics-grid">
+                <!-- Request Metrics -->
+                <div class="metric-card" id="card-total-requests">
+                    <div class="card-icon blue"><i class="bi bi-lightning-charge-fill"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">Total Requests</span>
+                        <div id="stat-total-requests" class="card-value">0</div>
+                        <span id="stat-active-requests" class="card-subtext">0 currently active</span>
+                    </div>
+                </div>
+
+                <!-- Latency Metric -->
+                <div class="metric-card" id="card-latency">
+                    <div class="card-icon purple"><i class="bi bi-speedometer2"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">Average Latency</span>
+                        <div class="card-value"><span id="stat-avg-latency">0.0</span> <small>ms</small></div>
+                        <span class="card-subtext">Round-trip proxy response</span>
+                    </div>
+                </div>
+
+                <!-- Data Transferred -->
+                <div class="metric-card" id="card-data-transfer">
+                    <div class="card-icon emerald"><i class="bi bi-arrow-down-up"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">Data Transferred</span>
+                        <div id="stat-total-bytes" class="card-value">0 B</div>
+                        <div class="transfer-subtext">
+                            <span class="up-stat"><i class="bi bi-arrow-up"></i> <span id="stat-bytes-up">0 B</span></span>
+                            <span class="down-stat"><i class="bi bi-arrow-down"></i> <span id="stat-bytes-down">0 B</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU Usage -->
+                <div class="metric-card" id="card-cpu">
+                    <div class="card-icon amber"><i class="bi bi-cpu-fill"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">CPU Usage</span>
+                        <div class="card-value"><span id="stat-cpu">0.0</span>%</div>
+                        <div class="progress-bar-container">
+                            <div id="bar-cpu" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Usage -->
+                <div class="metric-card" id="card-memory">
+                    <div class="card-icon rose"><i class="bi bi-memory"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">Memory Utilization</span>
+                        <div class="card-value"><span id="stat-memory">0.0</span>%</div>
+                        <span id="stat-memory-bytes" class="card-subtext">0 MB / 0 MB</span>
+                    </div>
+                </div>
+
+                <!-- Active Threads -->
+                <div class="metric-card" id="card-threads">
+                    <div class="card-icon slate"><i class="bi bi-diagram-3-fill"></i></div>
+                    <div class="card-content">
+                        <span class="card-label">Active Threads</span>
+                        <div id="stat-threads" class="card-value">0</div>
+                        <span id="stat-process-id" class="card-subtext">PID: 0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Active WebSocket Tunnels Section -->
+        <section id="tunnels-section" class="dashboard-section" aria-labelledby="tunnels-heading">
+            <div class="section-header">
+                <div class="header-left">
+                    <h2 id="tunnels-heading" class="section-title">
+                        <i class="bi bi-hdd-network-fill"></i> Active Tunnels
+                    </h2>
+                    <span id="tunnels-count-badge" class="count-badge">0 connected</span>
+                </div>
+                <div class="header-actions">
+                    <button id="refresh-tunnels-btn" class="btn btn-secondary btn-sm">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh List
+                    </button>
+                </div>
+            </div>
+
+            <div class="card table-card" style="position: relative; min-height: 220px;">
+                <div id="tunnels-unauth-overlay" class="unauth-overlay">
+                    <i class="bi bi-shield-lock"></i>
+                    <h3>Authentication Required</h3>
+                    <p>Enter your valid API key to view active tunnels and connection telemetry.</p>
+                    <button id="overlay-tunnels-auth-btn" class="btn btn-primary">
+                        <i class="bi bi-key-fill"></i> Authenticate Now
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="tunnels-table" class="tunnels-table" aria-label="Registered WebSocket Tunnels">
+                        <thead>
+                            <tr>
+                                <th scope="col">Target Path</th>
+                                <th scope="col">Client IP</th>
+                                <th scope="col">Requests Served</th>
+                                <th scope="col">Data Uploaded</th>
+                                <th scope="col">Data Downloaded</th>
+                                <th scope="col">Connected Since</th>
+                                <th scope="col" class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tunnels-tbody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="tunnels-empty-state" class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-cloud-slash"></i></div>
+                    <h3>No Active WebSocket Tunnels</h3>
+                    <p>When local client SDKs connect to the gateway, their registered endpoints will appear here.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Shared / Dummy API Keys Section -->
+        <section id="dummy-keys-section" class="dashboard-section" aria-labelledby="dummy-keys-heading">
+            <div class="section-header">
+                <div class="header-left">
+                    <h2 id="dummy-keys-heading" class="section-title">
+                        <i class="bi bi-key-fill"></i> Shared / Dummy API Keys
+                    </h2>
+                    <span class="badge badge-lock"><i class="bi bi-lock-fill"></i> API Key Protected</span>
+                </div>
+                <div class="header-actions">
+                    <button id="refresh-keys-btn" class="btn btn-secondary btn-sm" title="Refresh dummy keys list">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Keys
+                    </button>
+                </div>
+            </div>
+
+            <div class="card settings-card" style="min-height: 220px;">
+                <div id="keys-unauth-overlay" class="unauth-overlay">
+                    <i class="bi bi-shield-lock"></i>
+                    <h3>Authentication Required</h3>
+                    <p>Enter your valid admin API key to create and manage temporary shared API keys.</p>
+                    <button id="overlay-keys-auth-btn" class="btn btn-primary">
+                        <i class="bi bi-key-fill"></i> Authenticate Now
+                    </button>
+                </div>
+
+                <div class="dummy-keys-content">
+                    <p class="form-text" style="margin-bottom: 16px;">Create temporary in-memory API keys that you can share with friends or collaborators without revealing your primary secret key. These keys can be removed anytime.</p>
+                    <div class="create-key-row" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <input type="text" id="input-custom-dummy-key" class="form-control" placeholder="Enter custom key name (e.g. friend-key-1) or leave blank to auto-generate" style="flex: 1; min-width: 250px;">
+                        <button type="button" id="create-dummy-key-btn" class="btn btn-primary" style="white-space: nowrap;">
+                            <i class="bi bi-plus-circle"></i> Create Dummy Key
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="dummy-keys-table" class="tunnels-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Shared Key</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col" class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dummy-keys-tbody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="dummy-keys-empty-state" class="empty-state">
+                        <div class="empty-icon" style="font-size: 2rem;"><i class="bi bi-key"></i></div>
+                        <h3 style="font-size: 1rem;">No Shared Dummy API Keys Active</h3>
+                        <p style="font-size: 0.8rem;">Create a key above to allow friends or external clients temporary access.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Runtime Settings & Administration Section -->
+        <section id="settings-section" class="dashboard-section" aria-labelledby="settings-heading">
+            <div class="section-header">
+                <div class="header-left">
+                    <h2 id="settings-heading" class="section-title">
+                        <i class="bi bi-sliders2-vertical"></i> Gateway Runtime Configuration
+                    </h2>
+                    <span class="badge badge-lock"><i class="bi bi-lock-fill"></i> API Key Protected</span>
+                </div>
+                <div class="header-actions">
+                    <button id="reset-stats-btn" class="btn btn-danger-outline btn-sm" title="Reset server request counters and bytes">
+                        <i class="bi bi-trash3-fill"></i> Reset Telemetry Stats
+                    </button>
+                </div>
+            </div>
+
+            <div class="card settings-card">
+                <div id="settings-unauth-overlay" class="unauth-overlay">
+                    <i class="bi bi-shield-lock"></i>
+                    <h3>Authentication Required</h3>
+                    <p>Enter your valid API key in the authentication modal to inspect and modify server settings.</p>
+                    <button id="overlay-auth-btn" class="btn btn-primary">
+                        <i class="bi bi-key-fill"></i> Authenticate Now
+                    </button>
+                </div>
+
+                <form id="settings-form" class="settings-form" novalidate>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="input-streaming-threshold">Streaming Threshold (Bytes)</label>
+                            <input type="number" id="input-streaming-threshold" name="streaming_threshold_bytes" class="form-control" min="1024" step="1024" required>
+                            <small class="form-text">Payloads exceeding this size trigger chunked streaming mode.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-chunk-size">Chunk Size (Bytes)</label>
+                            <input type="number" id="input-chunk-size" name="chunk_size" class="form-control" min="1024" step="1024" required>
+                            <small class="form-text">Size of each frame when streaming large request bodies.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-tunnel-timeout">Tunnel Timeout (Seconds)</label>
+                            <input type="number" id="input-tunnel-timeout" name="tunnel_timeout" class="form-control" min="5" max="300" step="1" required>
+                            <small class="form-text">Max wait time for local client SDK response headers.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-ping-interval">Ping Interval (Seconds)</label>
+                            <input type="number" id="input-ping-interval" name="ping_interval" class="form-control" min="5" max="120" step="1" required>
+                            <small class="form-text">Frequency of server-to-client heartbeat frames.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-ping-timeout">Ping Timeout (Seconds)</label>
+                            <input type="number" id="input-ping-timeout" name="ping_timeout" class="form-control" min="10" max="300" step="1" required>
+                            <small class="form-text">Time before disconnecting an unresponsive tunnel.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-rate-limit">Default Rate Limit</label>
+                            <input type="text" id="input-rate-limit" name="rate_limit_default" class="form-control" placeholder="500 per minute" required>
+                            <small class="form-text">Flask-Limiter format (e.g. 500 per minute, 10 per second).</small>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" id="save-settings-btn" class="btn btn-primary">
+                            <i class="bi bi-check2-circle"></i> Save Configuration
+                        </button>
+                        <button type="button" id="reload-settings-btn" class="btn btn-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reload Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Server Environment Details Footer Card -->
+        <section id="server-info-section" class="dashboard-section" aria-labelledby="info-heading">
+            <div class="card info-card">
+                <h3 id="info-heading" class="info-title"><i class="bi bi-terminal-fill"></i> Gateway Capabilities & Environment</h3>
+                <div class="info-grid" id="server-info-grid">
+                    <div class="info-item"><span class="info-label">Server Version:</span> <code id="info-version">v1.0.0</code></div>
+                    <div class="info-item"><span class="info-label">Protocol Version:</span> <code id="info-protocol">v1</code></div>
+                    <div class="info-item"><span class="info-label">OS / Platform:</span> <span id="info-os">Loading...</span></div>
+                    <div class="info-item"><span class="info-label">Hostname:</span> <span id="info-hostname">Loading...</span></div>
+                    <div class="info-item"><span class="info-label">Python Runtime:</span> <span id="info-python">Loading...</span></div>
+                    <div class="info-item"><span class="info-label">Streaming Supported:</span> <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Yes</span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer id="app-footer" class="footer">
+        <div class="container footer-content">
+            <p>&copy; 2026 Tunnel Gateway. Built with high-performance Python & WebSocket multiplexing.</p>
+            <div class="footer-links">
+                <a href="/admin/status" target="_blank" rel="noopener">JSON Status</a>
+                <span class="separator">&bull;</span>
+                <a href="/admin/health" target="_blank" rel="noopener">Health Probe</a>
+                <span class="separator">&bull;</span>
+                <a href="/wake" target="_blank" rel="noopener">Wake Probe</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- API Key Authentication Modal -->
+    <div id="auth-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title"><i class="bi bi-key-fill"></i> Gateway Authentication</h3>
+                <button type="button" id="close-modal-btn" class="btn-close" aria-label="Close modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Enter your configured <code>TUNNEL_API_KEY</code> to manage active tunnels, modify server runtime settings, and reset metrics. Your key will be securely preserved in browser <code>localStorage</code>.</p>
+                <div class="form-group">
+                    <label for="modal-input-apikey">API Key</label>
+                    <div class="input-with-icon">
+                        <i class="bi bi-shield-lock input-icon"></i>
+                        <input type="password" id="modal-input-apikey" class="form-control" placeholder="Paste your secret API key here..." autocomplete="off">
+                        <button type="button" id="toggle-key-visibility-btn" class="btn-icon" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+                    </div>
+                </div>
+                <div id="modal-auth-feedback" class="auth-feedback hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="clear-key-btn" class="btn btn-danger-outline hidden">
+                    <i class="bi bi-box-arrow-left"></i> Disconnect Key
+                </button>
+                <div class="modal-footer-right">
+                    <button type="button" id="cancel-modal-btn" class="btn btn-secondary">Cancel</button>
+                    <button type="button" id="save-key-btn" class="btn btn-primary">
+                        <i class="bi bi-check2-circle"></i> Save & Verify
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- Vanilla JavaScript Application Logic -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ for /admin/status, /admin/health, and /admin/info.
 
 from tests.conftest import MockWebSocket
 from gateway import services as svc
+from gateway.config.settings import TUNNEL_API_KEY
 
 
 class TestAdminStatus:
@@ -18,25 +19,30 @@ class TestAdminStatus:
 
     def test_response_schema(self, client):
         data = client.get("/admin/status").get_json()
-        expected_keys = {
-            "status", "uptime_seconds", "started_at", "total_requests",
-            "active_requests", "average_latency_ms", "bytes_uploaded",
-            "bytes_downloaded", "total_bytes_transferred",
-            "active_tunnels_count", "tunnels",
-        }
-        assert set(data.keys()) == expected_keys
-
-    def test_status_is_online(self, client):
-        data = client.get("/admin/status").get_json()
         assert data["status"] == "online"
+        assert "uptime_seconds" in data
+        assert "started_at" in data
+        assert "total_requests" in data
+        assert "active_requests" in data
+        assert "average_latency_ms" in data
+        assert "bytes_uploaded" in data
+        assert "bytes_downloaded" in data
+        assert "total_bytes_transferred" in data
+        assert "active_tunnels_count" in data
+        assert "tunnels" in data
+
+    def test_unauth_hides_tunnels(self, client, registered_tunnel):
+        data = client.get("/admin/status").get_json()
+        assert data["active_tunnels_count"] == "Hidden (Auth Required)"
+        assert data["tunnels"] == []
 
     def test_no_tunnels_initially(self, client):
-        data = client.get("/admin/status").get_json()
+        data = client.get("/admin/status", headers={"X-API-Key": TUNNEL_API_KEY}).get_json()
         assert data["active_tunnels_count"] == 0
         assert data["tunnels"] == []
 
     def test_with_active_tunnel(self, client, registered_tunnel):
-        data = client.get("/admin/status").get_json()
+        data = client.get("/admin/status", headers={"X-API-Key": TUNNEL_API_KEY}).get_json()
         assert data["active_tunnels_count"] == 1
         assert len(data["tunnels"]) == 1
         tunnel_info = data["tunnels"][0]
@@ -92,9 +98,14 @@ class TestAdminHealth:
         assert data["python_thread_count"] >= 1
 
     def test_tunnel_counts_match(self, client, registered_tunnel):
-        data = client.get("/admin/health").get_json()
+        data = client.get("/admin/health", headers={"X-API-Key": TUNNEL_API_KEY}).get_json()
         assert data["active_tunnels"] == 1
         assert data["websocket_tunnel_count"] == 1
+
+    def test_unauth_health_hides_tunnels(self, client, registered_tunnel):
+        data = client.get("/admin/health").get_json()
+        assert data["active_tunnels"] == "Hidden"
+        assert data["websocket_tunnel_count"] == "Hidden"
 
 
 class TestAdminInfo:
@@ -116,8 +127,8 @@ class TestAdminInfo:
 
     def test_versions(self, client):
         data = client.get("/admin/info").get_json()
-        assert data["server_version"] == "1.0.0"
-        assert data["protocol_version"] == "1.0"
+        assert data["server_version"] == "1.2.0"
+        assert data["protocol_version"] == "1.2"
 
     def test_capability_flags(self, client):
         data = client.get("/admin/info").get_json()

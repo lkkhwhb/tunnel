@@ -11,7 +11,7 @@ import queue
 import threading
 import time
 
-from gateway.utils.encoding import b64_decode
+from gateway.utils.encoding import b64_decode, decode_payload
 
 
 class RequestState:
@@ -51,7 +51,7 @@ class RequestState:
     # Response Application  (called by the WebSocket multiplexer)
     # ------------------------------------------------------------------
 
-    def set_single_response(self, status: int, headers: dict, encoded_body: str) -> int:
+    def set_single_response(self, status: int, headers: dict, encoded_body: str, compressed: bool = False) -> int:
         """
         Apply a complete single-message response from the tunnel client.
 
@@ -59,13 +59,14 @@ class RequestState:
             status:       HTTP status code.
             headers:      Response headers dict.
             encoded_body: Base64-encoded response body string.
+            compressed:   Whether the body was compressed with zlib.
 
         Returns:
             The decoded body length in bytes (for stats tracking).
         """
         self.status = status
         self.headers = headers
-        body_bytes = b64_decode(encoded_body)
+        body_bytes = decode_payload(encoded_body, compressed=compressed)
         self.body = body_bytes
         self.is_single = True
         self.headers_event.set()
@@ -86,17 +87,18 @@ class RequestState:
         self.headers = headers
         self.headers_event.set()
 
-    def push_chunk(self, encoded_data: str) -> int:
+    def push_chunk(self, encoded_data: str, compressed: bool = False) -> int:
         """
         Enqueue a streaming response chunk from the tunnel client.
 
         Args:
             encoded_data: Base64-encoded chunk data string.
+            compressed:   Whether the chunk was compressed with zlib.
 
         Returns:
             The decoded chunk length in bytes (for stats tracking).
         """
-        chunk_bytes = b64_decode(encoded_data)
+        chunk_bytes = decode_payload(encoded_data, compressed=compressed)
         self.chunk_queue.put(chunk_bytes)
         return len(chunk_bytes)
 

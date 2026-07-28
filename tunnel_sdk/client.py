@@ -14,7 +14,7 @@ from tunnel_sdk.connection import TunnelConnection
 from tunnel_sdk.dispatcher import RequestDispatcher
 from tunnel_sdk.protocol import PROTOCOL_VERSION
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 logger = logging.getLogger("tunnel_sdk")
 

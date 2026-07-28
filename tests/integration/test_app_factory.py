@@ -55,12 +55,12 @@ class TestRouteRegistration:
                 for m in ("GET", "POST", "PUT", "DELETE", "PATCH"):
                     assert m in methods
 
-    def test_admin_routes_are_get_only(self, app):
-        admin_rules = [
+    def test_admin_reporting_routes_are_get_only(self, app):
+        reporting_rules = [
             r for r in app.url_map.iter_rules()
-            if r.rule.startswith("/admin/")
+            if r.rule in ("/admin/status", "/admin/health", "/admin/info")
         ]
-        for rule in admin_rules:
+        for rule in reporting_rules:
             assert "GET" in rule.methods
             assert "POST" not in rule.methods
 

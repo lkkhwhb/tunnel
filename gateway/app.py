@@ -57,10 +57,12 @@ def create_app() -> Flask:
     # ------------------------------------------------------------------ #
     # HTTP Route Blueprints
     # ------------------------------------------------------------------ #
+    from gateway.routes.web import web_bp
     from gateway.routes.admin import admin_bp
     from gateway.routes.wake import wake_bp
     from gateway.routes.proxy import proxy_bp
 
+    app.register_blueprint(web_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(wake_bp)
     app.register_blueprint(proxy_bp)

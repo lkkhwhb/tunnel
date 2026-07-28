@@ -5,11 +5,7 @@ Centralizes all WebSocket message types and version identifiers
 to eliminate scattered string literals across the codebase.
 """
 
-# ---------------------------------------------------------------------------
-# Versioning
-# ---------------------------------------------------------------------------
-SERVER_VERSION = "1.0.0"
-PROTOCOL_VERSION = "1.0"
+from gateway.config.settings import SERVER_VERSION, PROTOCOL_VERSION
 
 # ---------------------------------------------------------------------------
 # Heartbeat Message Types

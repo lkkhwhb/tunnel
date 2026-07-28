@@ -68,6 +68,15 @@ class ServerStats:
         with self._lock:
             self.bytes_downloaded += byte_count
 
+    def reset(self) -> None:
+        """Reset all request counters and byte metrics atomically."""
+        with self._lock:
+            self.total_requests = 0
+            self.active_requests = 0
+            self.bytes_uploaded = 0
+            self.bytes_downloaded = 0
+            self.total_latency_ms = 0.0
+
     # ------------------------------------------------------------------
     # Reporting
     # ------------------------------------------------------------------

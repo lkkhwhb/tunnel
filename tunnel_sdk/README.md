@@ -5,6 +5,9 @@ This is the production-ready Python SDK for the Tunnel Gateway. It allows you to
 ## Features
 
 * **Thread-safe**: Runs in the background without blocking your main application loop. No `asyncio` required!
+* **Header Authentication**: Secures your API key in HTTP headers (`Authorization: Bearer`), preventing exposure in URL logs.
+* **Payload Compression**: Transparent zlib compression for data exchange over WebSocket, boosting bandwidth efficiency and speed.
+* **Connection Pooling**: Optimized HTTP connection pooling with keep-alive limits for high-concurrency dispatching.
 * **Automated Reconnection**: Built-in exponential backoff means you don't have to manually manage network hiccups.
 * **Smart Streaming**: Automatically switches to chunked streaming for large files, keeping memory overhead low.
 * **Context Manager**: Start and stop the tunnel cleanly using `with Tunnel.from_env() as tunnel:`.

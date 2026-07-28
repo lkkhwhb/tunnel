@@ -39,3 +39,17 @@ class TestInvalidApiKey:
         with pytest.raises(AuthError) as exc_info:
             verify_api_key("invalid")
         assert "Invalid API key" in exc_info.value.log_detail
+
+
+class TestDummyApiKeys:
+    """Tests for dummy API key management and verification."""
+
+    def test_add_and_verify_dummy_key(self):
+        from gateway.utils.auth import add_dummy_api_key, remove_dummy_api_key, list_dummy_api_keys
+        add_dummy_api_key("dummy_test_key_123")
+        assert "dummy_test_key_123" in list_dummy_api_keys()
+        verify_api_key("dummy_test_key_123")  # Should not raise
+        remove_dummy_api_key("dummy_test_key_123")
+        assert "dummy_test_key_123" not in list_dummy_api_keys()
+        with pytest.raises(AuthError):
+            verify_api_key("dummy_test_key_123")

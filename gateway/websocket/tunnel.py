@@ -63,13 +63,17 @@ def register_tunnel_handler(sock) -> None:
         multiplexer loop that dispatches response frames to pending
         proxy requests.
         """
-        api_key = request.args.get("api_key")
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            api_key = auth_header[7:].strip()
+        else:
+            api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
         target_path = request.args.get("target_path")
         protocol_version = request.args.get("protocol_version")
         client_ip = request.remote_addr
 
         # ---- Validate Protocol Version ----
-        if not protocol_version or protocol_version != PROTOCOL_VERSION:
+        if not protocol_version or protocol_version not in ("1.0", "1.1", "1.2", PROTOCOL_VERSION):
             logger.warning(
                 f"Registration failed from {client_ip}: "
                 f"Incompatible protocol version {protocol_version}"
@@ -157,6 +161,7 @@ def register_tunnel_handler(sock) -> None:
                         payload.get("status", 200),
                         payload.get("headers", {}),
                         payload.get("body", ""),
+                        compressed=payload.get("compressed", False),
                     )
                     tunnel.record_download(body_len)
                     svc.server_stats.record_download(body_len)
@@ -170,6 +175,7 @@ def register_tunnel_handler(sock) -> None:
                 elif msg_type == MSG_RES_CHUNK:
                     chunk_len = req_state.push_chunk(
                         payload.get("data", ""),
+                        compressed=payload.get("compressed", False),
                     )
                     tunnel.record_download(chunk_len)
                     svc.server_stats.record_download(chunk_len)

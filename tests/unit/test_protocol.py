@@ -23,10 +23,10 @@ class TestConstants:
     """Verify that all protocol constants match expected values."""
 
     def test_server_version(self):
-        assert SERVER_VERSION == "1.0.0"
+        assert SERVER_VERSION == "1.2.0"
 
     def test_protocol_version(self):
-        assert PROTOCOL_VERSION == "1.0"
+        assert PROTOCOL_VERSION == "1.2"
 
     def test_heartbeat_types(self):
         assert MSG_PING == "ping"
@@ -99,6 +99,13 @@ class TestBuildReqSingle:
         msg = json.loads(build_req_single("r1", "GET", "/", "", {}, b""))
         assert msg["body"] == ""
 
+    def test_compressed_body(self):
+        from gateway.utils.encoding import decode_payload
+        large_body = b"A" * 200
+        msg = json.loads(build_req_single("r1", "POST", "/", "", {}, large_body))
+        assert msg.get("compressed") is True
+        assert decode_payload(msg["body"], compressed=msg["compressed"]) == large_body
+
 
 class TestBuildReqStart:
     """Tests for build_req_start."""
@@ -131,6 +138,13 @@ class TestBuildReqChunk:
         from gateway.utils.encoding import b64_decode
         msg = json.loads(build_req_chunk("r1", b"binary\x00data"))
         assert b64_decode(msg["data"]) == b"binary\x00data"
+
+    def test_compressed_chunk(self):
+        from gateway.utils.encoding import decode_payload
+        large_chunk = b"B" * 200
+        msg = json.loads(build_req_chunk("r1", large_chunk))
+        assert msg.get("compressed") is True
+        assert decode_payload(msg["data"], compressed=msg["compressed"]) == large_chunk
 
 
 class TestBuildReqEnd:

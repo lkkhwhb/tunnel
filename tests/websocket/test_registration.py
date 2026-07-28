@@ -47,12 +47,20 @@ class TestSuccessfulRegistration:
         svc.tunnel_manager.unregister("/api")
         svc.tunnel_manager.unregister("/web")
 
+    def test_header_auth_extraction(self):
+        """Simulate extracting API key from Authorization and X-API-Key headers."""
+        headers_bearer = {"Authorization": f"Bearer {TUNNEL_API_KEY}"}
+        auth_header = headers_bearer.get("Authorization")
+        extracted = auth_header[7:].strip() if auth_header and auth_header.lower().startswith("bearer ") else None
+        assert extracted == TUNNEL_API_KEY
+        verify_api_key(extracted)
+
 
 class TestProtocolVersionCheck:
     """Verify protocol version validation."""
 
     def test_correct_version(self):
-        assert PROTOCOL_VERSION == "1.0"
+        assert PROTOCOL_VERSION == "1.2"
 
     def test_wrong_version_would_be_rejected(self):
         """Simulate the handler's version check logic."""

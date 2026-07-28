@@ -14,7 +14,7 @@ from gateway.protocol.constants import (
     MSG_REQ_CHUNK,
     MSG_REQ_END,
 )
-from gateway.utils.encoding import b64_encode
+from gateway.utils.encoding import b64_encode, encode_payload
 
 
 def build_ping() -> str:
@@ -35,15 +35,19 @@ def build_req_single(
     Used for requests whose body is smaller than the streaming threshold.
     The entire body is base64-encoded into a single JSON frame.
     """
-    return json.dumps({
+    encoded_body, compressed = encode_payload(body_bytes, compress=True)
+    payload = {
         "type": MSG_REQ_SINGLE,
         "req_id": req_id,
         "method": method,
         "subpath": subpath,
         "query": query,
         "headers": headers,
-        "body": b64_encode(body_bytes),
-    })
+        "body": encoded_body,
+    }
+    if compressed:
+        payload["compressed"] = True
+    return json.dumps(payload)
 
 
 def build_req_start(
@@ -73,11 +77,15 @@ def build_req_chunk(req_id: str, chunk_bytes: bytes) -> str:
 
     Each chunk is base64-encoded independently.
     """
-    return json.dumps({
+    encoded_data, compressed = encode_payload(chunk_bytes, compress=True)
+    payload = {
         "type": MSG_REQ_CHUNK,
         "req_id": req_id,
-        "data": b64_encode(chunk_bytes),
-    })
+        "data": encoded_data,
+    }
+    if compressed:
+        payload["compressed"] = True
+    return json.dumps(payload)
 
 
 def build_req_end(req_id: str) -> str:

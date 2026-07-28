@@ -4,7 +4,7 @@
 
 Current protocol version: **`1.0`**
 
-The client must include `protocol_version=1.0` as a query parameter when connecting to `/ws/tunnel`. The server rejects connections with a mismatched or missing version.
+The client must include `protocol_version=1.0` as a query parameter when connecting to `/ws/tunnel`. The server rejects connections with a mismatched or missing version. Authentication must be provided in HTTP headers via `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 ---
 
@@ -13,14 +13,16 @@ The client must include `protocol_version=1.0` as a query parameter when connect
 ### Connection
 
 ```
-WS /ws/tunnel?api_key=<key>&target_path=<path>&protocol_version=1.0
+WS /ws/tunnel?target_path=<path>&protocol_version=1.0
+Headers:
+  Authorization: Bearer <key>
 ```
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `api_key` | Yes | Secret API key matching the server's configured `TUNNEL_API_KEY` |
-| `target_path` | Yes | URL path prefix this tunnel will serve |
-| `protocol_version` | Yes | Must match server's `PROTOCOL_VERSION` |
+| `target_path` (query) | Yes | URL path prefix this tunnel will serve |
+| `protocol_version` (query) | Yes | Must match server's `PROTOCOL_VERSION` (`1.0`) |
+| `Authorization` (header) | Yes* | Secret API key as `Bearer <key>` (or via `X-API-Key` header) |
 
 ### Registration Sequence
 
@@ -29,7 +31,7 @@ sequenceDiagram
     participant SDK as Client SDK
     participant GW as Tunnel Gateway
 
-    SDK->>GW: WS CONNECT /ws/tunnel?api_key=...&target_path=/api&protocol_version=1.0
+    SDK->>GW: WS CONNECT /ws/tunnel?target_path=/api&protocol_version=1.0 (Auth Header)
     GW->>GW: Validate protocol version
     GW->>GW: Verify API key against TUNNEL_API_KEY
     GW->>GW: Check /api not already registered
@@ -54,7 +56,7 @@ sequenceDiagram
 
 ### API Key Verification
 
-The server compares the provided `api_key` query parameter against the `TUNNEL_API_KEY` environment variable using constant-time comparison (`hmac.compare_digest()`) to prevent timing attacks.
+The server checks for an API key in the `Authorization: Bearer <key>` header or `X-API-Key` header (fallback query param supported for legacy clients) against the `TUNNEL_API_KEY` environment variable using constant-time comparison (`hmac.compare_digest()`) to prevent timing attacks.
 
 ---
 
@@ -134,7 +136,7 @@ The gateway automatically selects the protocol based on request characteristics:
 
 ## Single-Message Protocol
 
-Used for small requests/responses. The entire payload fits in one WebSocket frame.
+Used for small requests/responses. The entire payload fits in one WebSocket frame. When payload data exceeds 64 bytes and compression is beneficial, zlib compression is applied and the frame includes `"compressed": true`.
 
 ```mermaid
 sequenceDiagram
@@ -163,7 +165,8 @@ sequenceDiagram
     "Content-Type": "application/json",
     "Authorization": "Bearer ..."
   },
-  "body": "eyJuYW1lIjogIkpvaG4ifQ=="
+  "body": "eyJuYW1lIjogIkpvaG4ifQ==",
+  "compressed": false
 }
 ```
 
@@ -175,7 +178,8 @@ sequenceDiagram
 | `subpath` | `string` | Path after the matched tunnel prefix |
 | `query` | `string` | Raw query string (without `?`) |
 | `headers` | `object` | Request headers (`Host` removed) |
-| `body` | `string` | Base64-encoded request body |
+| `body` | `string` | Base64-encoded request body (zlib compressed if `compressed` is true) |
+| `compressed` | `boolean` | Optional flag indicating zlib compression |
 
 ### Response Frame
 
@@ -189,7 +193,8 @@ sequenceDiagram
   "headers": {
     "Content-Type": "application/json"
   },
-  "body": "eyJpZCI6IDEsICJuYW1lIjogIkpvaG4ifQ=="
+  "body": "eyJpZCI6IDEsICJuYW1lIjogIkpvaG4ifQ==",
+  "compressed": false
 }
 ```
 
@@ -199,13 +204,14 @@ sequenceDiagram
 | `req_id` | `string` | Must match the request's `req_id` |
 | `status` | `number` | HTTP status code (default: 200) |
 | `headers` | `object` | Response headers |
-| `body` | `string` | Base64-encoded response body |
+| `body` | `string` | Base64-encoded response body (zlib compressed if `compressed` is true) |
+| `compressed` | `boolean` | Optional flag indicating zlib compression |
 
 ---
 
 ## Streaming Protocol
 
-Used for large requests/responses. The body is split into chunks.
+Used for large requests/responses. The body is split into chunks. Chunks are individually zlib compressed when beneficial.
 
 ```mermaid
 sequenceDiagram
@@ -253,7 +259,8 @@ sequenceDiagram
 {
   "type": "req_chunk",
   "req_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": "base64encodedchunkdata..."
+  "data": "base64encodedchunkdata...",
+  "compressed": true
 }
 ```
 
@@ -287,7 +294,8 @@ sequenceDiagram
 {
   "type": "res_chunk",
   "req_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": "base64encodedchunkdata..."
+  "data": "base64encodedchunkdata...",
+  "compressed": true
 }
 ```
 
@@ -429,7 +437,7 @@ Server version and capabilities. Rate-limit exempt.
 **Response:**
 ```json
 {
-  "server_version": "1.0.0",
+  "server_version": "1.2.0",
   "protocol_version": "1.0",
   "python_version": "3.12.0 (main, Oct  2 2024, 00:00:00)",
   "operating_system": "Linux 6.1.0",
@@ -437,7 +445,7 @@ Server version and capabilities. Rate-limit exempt.
   "startup_time": 1735686000.0,
   "streaming_support": true,
   "binary_frame_support": false,
-  "compression_support": false
+  "compression_support": true
 }
 ```
 

@@ -9,7 +9,7 @@ import urllib.parse
 from typing import Dict, Any, Callable
 
 from tunnel_sdk.protocol import (
-    decode_base64, build_res_single, build_res_start, 
+    decode_base64, decode_payload, build_res_single, build_res_start, 
     build_res_chunk, build_res_end
 )
 
@@ -21,7 +21,8 @@ class RequestDispatcher:
         self.ws_send_func = ws_send_func
         self.stats = stats
         self.events = events
-        self.http_client = httpx.Client(timeout=None)
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        self.http_client = httpx.Client(timeout=None, limits=limits)
         self.executor = threading.concurrent.futures.ThreadPoolExecutor(max_workers=50) if hasattr(threading, 'concurrent') else None
         
         # In Python standard library, ThreadPoolExecutor is in concurrent.futures
@@ -51,7 +52,9 @@ class RequestDispatcher:
     def dispatch_chunk(self, msg: Dict[str, Any]):
         req_id = msg["req_id"]
         if req_id in self.streaming_queues:
-            self.streaming_queues[req_id].put(decode_base64(msg["data"]))
+            self.streaming_queues[req_id].put(
+                decode_payload(msg["data"], compressed=msg.get("compressed", False))
+            )
 
     def dispatch_end(self, msg: Dict[str, Any]):
         req_id = msg["req_id"]
@@ -81,7 +84,7 @@ class RequestDispatcher:
             
             url = self._build_url(msg["subpath"], msg["query"])
             headers = self._filter_headers(msg.get("headers", {}))
-            body_bytes = decode_base64(msg.get("body", "")) if msg.get("body") else None
+            body_bytes = decode_payload(msg.get("body", ""), compressed=msg.get("compressed", False)) if msg.get("body") else None
             
             if body_bytes:
                 self.stats.add_bytes_downloaded(len(body_bytes))

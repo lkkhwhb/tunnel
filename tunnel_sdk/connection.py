@@ -34,7 +34,6 @@ class TunnelConnection:
 
     def get_url(self) -> str:
         params = {
-            "api_key": self.config.api_key,
             "target_path": self.config.target_path,
             "protocol_version": PROTOCOL_VERSION
         }
@@ -52,14 +51,25 @@ class TunnelConnection:
         attempt = 0
         while not self._stop_event.is_set():
             url = self.get_url()
+            
+            if attempt == 0:
+                self._wake_gateway()
+                if self._stop_event.is_set():
+                    break
+                
             logger.info(f"Connecting to {self.config.gateway} as {self.config.target_path}")
             
             if attempt > 0:
                 self.events.emit("on_reconnect_attempt", attempt)
                 self.stats.inc_reconnect()
             
+            headers = [
+                f"Authorization: Bearer {self.config.api_key}",
+                f"X-API-Key: {self.config.api_key}"
+            ]
             self.ws_app = websocket.WebSocketApp(
                 url,
+                header=headers,
                 on_open=self._on_open,
                 on_message=self._on_message,
                 on_error=self._on_error,
@@ -84,6 +94,23 @@ class TunnelConnection:
             logger.info(f"Reconnecting in {delay} seconds...")
             attempt += 1
             time.sleep(delay)
+
+    def _wake_gateway(self):
+        """Sends a proactive HTTP request to wake up the gateway (e.g., if hosted on Render free tier)."""
+        base_url = self.config.gateway.replace("wss://", "https://").replace("ws://", "http://").rstrip("/")
+        if "localhost" in base_url or "127.0.0.1" in base_url or base_url == "https://test":
+            return
+        wake_url = f"{base_url}/wake"
+        
+        print("Checking if Gateway is awake (this may take 30-50s if Render is sleeping)...")
+        try:
+            import httpx
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.get(wake_url)
+                if resp.status_code == 200:
+                    print("Gateway is awake!")
+        except Exception as e:
+            logger.warning(f"Wake probe failed (will try websocket anyway): {e}")
 
     def stop(self):
         self._stop_event.set()
