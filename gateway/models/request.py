@@ -41,7 +41,7 @@ class RequestState:
         self.req_id = req_id
         self.start_time = start_time
         self.headers_event = threading.Event()
-        self.chunk_queue: queue.Queue = queue.Queue()
+        self.chunk_queue: queue.Queue = queue.Queue(maxsize=100)
         self.status: int = 500
         self.headers: dict = {}
         self.is_single: bool = False

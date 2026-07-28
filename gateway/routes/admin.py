@@ -33,6 +33,15 @@ from gateway.utils.auth import (
 
 admin_bp = Blueprint("admin", __name__)
 
+# Persistent process handle for accurate CPU percentage tracking across calls.
+# Recreating psutil.Process() on every call causes cpu_percent() to always return 0.
+try:
+    _process = psutil.Process(os.getpid())
+    _process.cpu_percent(interval=None)  # Initialize process baseline
+except Exception:
+    _process = None
+psutil.cpu_percent(interval=None)  # Initialize system baseline
+
 
 def _is_request_authenticated() -> bool:
     """Check if the incoming request includes a valid API key."""
@@ -81,11 +90,22 @@ def admin_health():
     mem = psutil.virtual_memory()
     pid = os.getpid()
 
-    try:
-        p = psutil.Process(pid)
-        thread_count = p.num_threads()
-    except Exception:
-        thread_count = threading.active_count()
+    proc_cpu = 0.0
+    thread_count = threading.active_count()
+    if _process:
+        try:
+            # Divided by core_count so process cpu scales 0-100% like sys_cpu
+            core_count = psutil.cpu_count() or 1
+            proc_cpu = _process.cpu_percent(interval=None) / core_count
+            thread_count = _process.num_threads()
+        except Exception:
+            pass
+
+    sys_cpu = psutil.cpu_percent(interval=None)
+    
+    # In containerized environments like Render.com, system CPU might report 0.
+    # We take the max of system and process CPU to ensure it's always accurate.
+    cpu_percent = round(max(sys_cpu, proc_cpu), 1)
 
     stats = svc.server_stats.snapshot()
     is_auth = _is_request_authenticated()
@@ -93,7 +113,7 @@ def admin_health():
     active_tunnels_count = real_count if is_auth else "Hidden"
 
     return jsonify({
-        "cpu_usage_percent": psutil.cpu_percent(interval=None),
+        "cpu_usage_percent": cpu_percent,
         "memory_usage_percent": mem.percent,
         "used_memory_bytes": mem.used,
         "total_memory_bytes": mem.total,

@@ -44,7 +44,7 @@ class RequestDispatcher:
 
     def dispatch_start(self, msg: Dict[str, Any]):
         req_id = msg["req_id"]
-        q = queue.Queue()
+        q = queue.Queue(maxsize=100)
         ev = threading.Event()
         self.streaming_queues[req_id] = q
         self.streaming_events[req_id] = ev

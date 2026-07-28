@@ -1,44 +1,19 @@
-import os
-from flask import Flask, jsonify
 from tunnel_sdk import Tunnel
+from flask import Flask
 
 app = Flask(__name__)
 
-@app.route("/api/hello")
+@app.route("/hello")
 def hello():
-    return jsonify({"message": "Hello from Flask through the Tunnel Gateway!"})
+    return "Hello from my device!"
 
 if __name__ == "__main__":
-    # Ensure these environment variables are set before running:
-    # TUNNEL_GATEWAY="wss://gateway.example.com"
-    # TUNNEL_API_KEY="your-secret-key"
-    # TUNNEL_TARGET_PATH="/api"
-    # TUNNEL_LOCAL_URL="http://127.0.0.1:5000"
-    
-    print("Starting Tunnel...")
-    
-    # You can either provide parameters directly to Tunnel(...) 
-    # or use Tunnel.from_env() to load from environment variables.
-    tunnel = Tunnel.from_env()
-    
-    # Optional callbacks for monitoring connection state
-    @tunnel.on("on_connect")
-    def on_connect():
-        print("Tunnel connected successfully!")
-        
-    @tunnel.on("on_disconnect")
-    def on_disconnect():
-        print("Tunnel disconnected. Reconnecting...")
-    
-    # Start the tunnel in the background
-    # Since from_env() loads TUNNEL_LOCAL_URL, we don't need to pass it here.
+    tunnel = Tunnel(
+        api_key="", # API KEY
+        gateway="ws://127.0.0.1:5000",
+        port=5001,
+        target_path="/user",
+    )
+
     tunnel.start()
-    
-    try:
-        # Run the Flask app on the main thread
-        print("Starting Flask app on port 5000...")
-        app.run(port=5000)
-    finally:
-        # Ensure graceful shutdown of the tunnel when Flask exits
-        print("Shutting down Tunnel...")
-        tunnel.stop()
+    app.run(port=5001)
