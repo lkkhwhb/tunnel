@@ -11,8 +11,9 @@ if __name__ == "__main__":
     tunnel = Tunnel(
         api_key="6ac8a47c-76af-4936-851b-5a54c8972f96",
         gateway="ws://127.0.0.1:5000",
+        port=5001,
         target_path="/bhargav",
     )
 
-    tunnel.run()
-    app.run()
+    tunnel.start()
+    app.run(port=5001)

@@ -3,6 +3,7 @@ Dispatches incoming WebSocket messages to the local HTTP server.
 """
 import threading
 import queue
+import time
 import httpx
 import logging
 import urllib.parse
@@ -89,13 +90,20 @@ class RequestDispatcher:
             if body_bytes:
                 self.stats.add_bytes_downloaded(len(body_bytes))
 
-            resp = self.http_client.request(
-                method=msg["method"],
-                url=url,
-                headers=headers,
-                content=body_bytes,
-                follow_redirects=False
-            )
+            for attempt in range(6):
+                try:
+                    resp = self.http_client.request(
+                        method=msg["method"],
+                        url=url,
+                        headers=headers,
+                        content=body_bytes,
+                        follow_redirects=False
+                    )
+                    break
+                except (httpx.HTTPError, OSError) as e:
+                    if attempt == 5:
+                        raise
+                    time.sleep(0.5)
             
             resp_body = resp.content
             self.stats.add_bytes_uploaded(len(resp_body))
@@ -143,7 +151,14 @@ class RequestDispatcher:
                 content=chunk_generator()
             )
             
-            resp = self.http_client.send(req, stream=True, follow_redirects=False)
+            for attempt in range(6):
+                try:
+                    resp = self.http_client.send(req, stream=True, follow_redirects=False)
+                    break
+                except (httpx.HTTPError, OSError) as e:
+                    if attempt == 5:
+                        raise
+                    time.sleep(0.5)
             
             # Send res_start
             start_msg = build_res_start(

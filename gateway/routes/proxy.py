@@ -75,6 +75,9 @@ def catch_all_proxy(path):
     matched_tunnel_path, tunnel = svc.tunnel_manager.find_longest_match(full_path)
 
     if not matched_tunnel_path:
+        if "text/html" in request.headers.get("Accept", ""):
+            from flask import redirect
+            return redirect("/", code=302)
         return Response(
             "No active tunnel registered for this endpoint.", status=404
         )
