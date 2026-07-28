@@ -10,7 +10,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- State Variables ---
     let apiKey = localStorage.getItem("tunnel_api_key") || null;
     let pollInterval = null;
-    let isPolling = true;
+    let isPolling = localStorage.getItem("tunnel_auto_refresh") !== "false";
+    let currentTheme = localStorage.getItem("tunnel_theme") || "light";
 
     // --- DOM Elements ---
     const authBtn = document.getElementById("auth-btn");
@@ -24,6 +25,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalInputApiKey = document.getElementById("modal-input-apikey");
     const toggleKeyVisibilityBtn = document.getElementById("toggle-key-visibility-btn");
     const modalAuthFeedback = document.getElementById("modal-auth-feedback");
+
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+    const mobileMenuCloseBtn = document.getElementById("mobile-menu-close-btn");
+    const headerControls = document.getElementById("header-controls");
+    const mobileMenuBackdrop = document.getElementById("mobile-menu-backdrop");
+
+    const themeToggleBtn = document.getElementById("theme-toggle-btn");
+    const themeIcon = document.getElementById("theme-icon");
+    const themeText = document.getElementById("theme-text");
 
     const autoRefreshToggle = document.getElementById("auto-refresh-toggle");
     const lastUpdatedTimestamp = document.getElementById("last-updated-timestamp");
@@ -104,7 +114,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function applyTheme(theme) {
+        if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+            if (themeIcon) themeIcon.className = "bi bi-sun-fill";
+            if (themeText) themeText.textContent = "Light Mode";
+        } else {
+            document.documentElement.classList.remove("dark");
+            if (themeIcon) themeIcon.className = "bi bi-moon-fill";
+            if (themeText) themeText.textContent = "Dark Mode";
+        }
+    }
+
+    function toggleMobileMenu(forceClose = false) {
+        if (!headerControls) return;
+        const isOpen = headerControls.classList.contains("open");
+        if (isOpen || forceClose) {
+            headerControls.classList.remove("open");
+            if(mobileMenuBackdrop) mobileMenuBackdrop.classList.remove("open");
+            document.body.style.overflow = "";
+        } else {
+            headerControls.classList.add("open");
+            if(mobileMenuBackdrop) mobileMenuBackdrop.classList.add("open");
+            document.body.style.overflow = "hidden";
+        }
+    }
+
     function init() {
+        applyTheme(currentTheme);
         updateAuthStateUI();
         fetchInfo();
         fetchStatusAndHealth();
@@ -114,6 +151,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Start 2s polling
+        if (autoRefreshToggle) {
+            autoRefreshToggle.checked = isPolling;
+        }
+        
         if (isPolling) {
             startPolling();
         }
@@ -283,17 +324,17 @@ document.addEventListener("DOMContentLoaded", () => {
         tunnels.forEach(tunnel => {
             const tr = document.createElement("tr");
 
-            const uptimeStr = formatUptime((Date.now() / 1000) - (tunnel.connected_at || Date.now() / 1000));
+            const uptimeStr = formatUptime(tunnel.uptime_seconds || 0);
             const path = tunnel.target_path || "/";
 
             tr.innerHTML = `
-                <td class="path-cell"><span class="path-badge"><i class="bi bi-link-45deg"></i> ${path}</span></td>
-                <td class="ip-cell">${tunnel.client_ip || "Unknown"}</td>
-                <td class="bytes-cell">${(tunnel.requests_served || 0).toLocaleString()}</td>
-                <td class="bytes-cell">${formatBytes(tunnel.bytes_uploaded || 0)}</td>
-                <td class="bytes-cell">${formatBytes(tunnel.bytes_downloaded || 0)}</td>
-                <td class="time-cell">${uptimeStr} ago</td>
-                <td class="text-right">
+                <td class="path-cell" data-label="Target Path"><span class="path-badge"><i class="bi bi-link-45deg"></i> ${path}</span></td>
+                <td class="ip-cell" data-label="Client IP">${tunnel.client_ip || "Unknown"}</td>
+                <td class="bytes-cell" data-label="Requests Served">${(tunnel.requests_served || 0).toLocaleString()}</td>
+                <td class="bytes-cell" data-label="Data Uploaded">${formatBytes(tunnel.bytes_uploaded || 0)}</td>
+                <td class="bytes-cell" data-label="Data Downloaded">${formatBytes(tunnel.bytes_downloaded || 0)}</td>
+                <td class="time-cell" data-label="Connected Since">${uptimeStr} ago</td>
+                <td class="text-right" data-label="Actions">
                     <button class="btn btn-danger-outline btn-sm disconnect-tunnel-btn" data-path="${path}" title="Disconnect Tunnel">
                         <i class="bi bi-x-circle-fill"></i> Disconnect
                     </button>
@@ -413,12 +454,19 @@ document.addEventListener("DOMContentLoaded", () => {
         authModal.classList.add("hidden");
     }
 
-    authBtn.addEventListener("click", openAuthModal);
+    authBtn.addEventListener("click", () => {
+        toggleMobileMenu(true);
+        openAuthModal();
+    });
     overlayAuthBtn.addEventListener("click", openAuthModal);
     if (overlayTunnelsAuthBtn) overlayTunnelsAuthBtn.addEventListener("click", openAuthModal);
     if (overlayKeysAuthBtn) overlayKeysAuthBtn.addEventListener("click", openAuthModal);
     closeModalBtn.addEventListener("click", closeAuthModal);
     cancelModalBtn.addEventListener("click", closeAuthModal);
+
+    if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", () => toggleMobileMenu(false));
+    if (mobileMenuCloseBtn) mobileMenuCloseBtn.addEventListener("click", () => toggleMobileMenu(true));
+    if (mobileMenuBackdrop) mobileMenuBackdrop.addEventListener("click", () => toggleMobileMenu(true));
 
     if (createDummyKeyBtn) createDummyKeyBtn.addEventListener("click", createDummyKey);
     if (refreshKeysBtn) refreshKeysBtn.addEventListener("click", () => {
@@ -568,6 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     autoRefreshToggle.addEventListener("change", (e) => {
         isPolling = e.target.checked;
+        localStorage.setItem("tunnel_auto_refresh", isPolling);
         if (isPolling) {
             startPolling();
             showToast("Auto-refresh enabled (2s interval).", "info");
@@ -576,6 +625,14 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Auto-refresh paused.", "info");
         }
     });
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener("click", () => {
+            currentTheme = currentTheme === "light" ? "dark" : "light";
+            localStorage.setItem("tunnel_theme", currentTheme);
+            applyTheme(currentTheme);
+        });
+    }
 
     refreshTunnelsBtn.addEventListener("click", () => {
         fetchStatusAndHealth();
@@ -642,9 +699,9 @@ document.addEventListener("DOMContentLoaded", () => {
         keys.forEach(keyStr => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td class="path-cell"><span class="path-badge" style="background: var(--accent-purple-subtle); color: var(--accent-purple);"><i class="bi bi-key-fill"></i> ${keyStr}</span></td>
-                <td><span class="badge badge-success" style="background: var(--accent-emerald-subtle); color: var(--accent-emerald-dark);">Active (In Memory)</span></td>
-                <td class="text-right">
+                <td class="path-cell" data-label="Shared Key"><span class="path-badge" style="background: var(--accent-purple-subtle); color: var(--accent-purple);"><i class="bi bi-key-fill"></i> ${keyStr}</span></td>
+                <td data-label="Status"><span class="badge badge-success" style="background: var(--accent-emerald-subtle); color: var(--accent-emerald-dark);">Active (In Memory)</span></td>
+                <td class="text-right" data-label="Actions">
                     <button class="btn btn-secondary btn-sm copy-key-btn" data-key="${keyStr}" title="Copy Key">
                         <i class="bi bi-clipboard"></i> Copy
                     </button>

@@ -59,6 +59,19 @@ Tunnel Gateway acts as a public-facing relay. Client SDKs establish persistent W
     └── sdk.md                     # SDK integration guide
 ```
 
+## Deployment (Render.com)
+
+Tunnel Gateway is fully optimized for deployment on Render's Web Service platform using Gunicorn.
+
+**Render Settings:**
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `gunicorn -c gunicorn.conf.py main:app`
+- **Environment Variables:**
+  - `TUNNEL_API_KEY`: Your secure secret API key (Required).
+  - `PYTHON_VERSION`: `3.10.0` or higher (Recommended).
+  - `PORT`: `5000` (Render handles this automatically).
+  - `WEB_CONCURRENCY`: Adjust based on Render tier (defaults to CPU heuristic).
+
 ## Quick Start
 
 ```bash
@@ -85,4 +98,5 @@ The server starts on `0.0.0.0:5000` by default. Configure via environment variab
 | `/wake` | GET | Liveness probe |
 | `/admin/status` | GET | Server stats & active tunnels |
 | `/admin/health` | GET | CPU, memory, thread metrics |
+| `/metrics` | GET | Prometheus compatible metrics export |
 | `/admin/info` | GET | Version & capability flags |

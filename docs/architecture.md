@@ -145,7 +145,9 @@ svc.tunnel_manager.find_longest_match(path)
 | Pending requests | Internal `threading.Lock` in `RequestManager` | RequestManager |
 | Server stats | Internal `threading.Lock` in `ServerStats` | ServerStats |
 | Per-tunnel WS send | `send_lock` on `TunnelConnection` | TunnelConnection.send() |
-| Per-tunnel counters | CPython GIL (single writer) | Proxy thread / multiplexer |
+| Async message queue | Thread-safe `collections.deque` | TunnelConnection |
+
+*Note: The WebSocket multiplexing utilizes a `ThreadPoolExecutor` (max 50 workers) to ensure high concurrency without blocking the main event loop. Prometheus metrics are collected via `prometheus_client` and exposed via the `/metrics` endpoint.*
 
 ## App Factory Pattern
 

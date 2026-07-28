@@ -14,6 +14,13 @@ from tunnel_sdk.events import EventEmitter
 from tunnel_sdk.stats import TunnelStats
 from tunnel_sdk.protocol import PROTOCOL_VERSION, build_pong, parse_message
 
+class Colors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    CYAN = '\033[96m'
+    RESET = '\033[0m'
+
 logger = logging.getLogger("tunnel_sdk.connection")
 
 class TunnelConnection:
@@ -130,12 +137,17 @@ class TunnelConnection:
         public_url = f"{base_url}{self.config.target_path}"
         local_url = self.config.local_url or "your local server"
         
-        print("\n" + "="*60)
-        print("TUNNEL CONNECTED SUCCESSFULLY!")
-        print(f"Public URL : {public_url}")
-        print(f"Forwarding to : {local_url}")
-        print("="*60 + "\n")
-        logger.info(f"Tunnel connected successfully. Proxying {public_url} -> {local_url}")
+        def print_success():
+            time.sleep(0.5)
+            if self.connected:
+                print(f"\n{Colors.GREEN}" + "="*60)
+                print("🚀 TUNNEL CONNECTED SUCCESSFULLY!")
+                print(f"🌍 Public URL : {Colors.CYAN}{public_url}{Colors.GREEN}")
+                print(f"🏠 Forwarding to : {Colors.CYAN}{local_url}{Colors.GREEN}")
+                print("="*60 + f"{Colors.RESET}\n")
+                logger.info(f"Tunnel connected successfully. Proxying {public_url} -> {local_url}")
+
+        threading.Thread(target=print_success, daemon=True).start()
 
     def _on_message(self, ws, message):
         try:
@@ -150,7 +162,7 @@ class TunnelConnection:
         if "error" in msg:
             error_msg = msg['error']
             logger.error(f"Gateway Error: {error_msg}")
-            print(f"\nTUNNEL ERROR: {error_msg}\n")
+            print(f"\n{Colors.RED}❌ TUNNEL ERROR: {error_msg}{Colors.RESET}\n")
             self.events.emit("on_error", Exception(error_msg))
             return
 

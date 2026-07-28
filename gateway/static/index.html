@@ -27,7 +27,25 @@
             </div>
         </div>
 
-        <div class="header-controls">
+        <!-- Mobile Menu Toggle Button -->
+        <button id="mobile-menu-btn" class="btn-icon-only mobile-menu-btn" aria-label="Open Menu">
+            <i class="bi bi-list" style="font-size: 1.5rem;"></i>
+        </button>
+
+        <div id="header-controls" class="header-controls">
+            <div class="mobile-menu-header">
+                <h3>Settings</h3>
+                <button id="mobile-menu-close-btn" class="btn-icon-only" aria-label="Close Menu">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- Theme Toggle -->
+            <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Dark Mode" title="Toggle Dark/Light Theme">
+                <i class="bi bi-moon-fill" id="theme-icon"></i>
+                <span id="theme-text" class="mobile-menu-text">Dark Mode</span>
+            </button>
+
             <!-- Auto Refresh Toggle -->
             <div class="toggle-wrapper" title="Poll status every 2 seconds">
                 <label for="auto-refresh-toggle" class="toggle-label">
@@ -54,6 +72,8 @@
             </button>
         </div>
     </header>
+
+    <div id="mobile-menu-backdrop" class="mobile-menu-backdrop"></div>
 
     <!-- Main Dashboard Content -->
     <main id="main-content" class="container">
