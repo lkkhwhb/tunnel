@@ -80,7 +80,7 @@ class TestPongHandling:
 
     def test_pong_updates_last_active(self, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         old = tunnel.last_active
         import time as _t
         _t.sleep(0.01)
@@ -119,7 +119,7 @@ class TestStatsRecording:
 
     def test_download_bytes_recorded_on_single(self, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         state = svc.request_manager.create("r1", time.time())
 
         body_len = state.set_single_response(200, {}, b64_encode(b"12345"))
@@ -135,7 +135,7 @@ class TestStatsRecording:
 
     def test_download_bytes_recorded_on_chunk(self, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         state = svc.request_manager.create("r1", time.time())
 
         chunk_len = state.push_chunk(b64_encode(b"chunk-data"))

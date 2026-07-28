@@ -17,29 +17,31 @@ class TestRegister:
     def test_register_success(self):
         mgr = TunnelManager()
         ws = MockWebSocket()
-        tunnel = mgr.register("/api", ws, "10.0.0.1")
+        tunnel, reason = mgr.register("/api", ws, "10.0.0.1")
         assert tunnel is not None
+        assert reason is None
         assert tunnel.client_ip == "10.0.0.1"
         assert tunnel.ws is ws
 
     def test_register_duplicate_returns_none(self):
         mgr = TunnelManager()
         mgr.register("/api", MockWebSocket(), "10.0.0.1")
-        result = mgr.register("/api", MockWebSocket(), "10.0.0.2")
-        assert result is None
+        tunnel, reason = mgr.register("/api", MockWebSocket(), "10.0.0.2")
+        assert tunnel is None
+        assert reason == "path_in_use"
 
     def test_register_different_paths(self):
         mgr = TunnelManager()
-        t1 = mgr.register("/api", MockWebSocket(), "10.0.0.1")
-        t2 = mgr.register("/web", MockWebSocket(), "10.0.0.2")
+        t1, _ = mgr.register("/api", MockWebSocket(), "10.0.0.1")
+        t2, _ = mgr.register("/web", MockWebSocket(), "10.0.0.2")
         assert t1 is not None
         assert t2 is not None
         assert mgr.count() == 2
 
     def test_register_nested_paths(self):
         mgr = TunnelManager()
-        t1 = mgr.register("/api", MockWebSocket(), "10.0.0.1")
-        t2 = mgr.register("/api/v2", MockWebSocket(), "10.0.0.2")
+        t1, _ = mgr.register("/api", MockWebSocket(), "10.0.0.1")
+        t2, _ = mgr.register("/api/v2", MockWebSocket(), "10.0.0.2")
         assert t1 is not None
         assert t2 is not None
 
@@ -77,7 +79,7 @@ class TestUnregister:
         mgr = TunnelManager()
         mgr.register("/api", MockWebSocket(), "10.0.0.1")
         mgr.unregister("/api")
-        tunnel = mgr.register("/api", MockWebSocket(), "10.0.0.2")
+        tunnel, _ = mgr.register("/api", MockWebSocket(), "10.0.0.2")
         assert tunnel is not None
 
 

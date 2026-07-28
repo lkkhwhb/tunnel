@@ -5,6 +5,12 @@ Extensions are created here and initialized with the Flask app
 in the app factory (``gateway.app.create_app``).  Placing them in
 a dedicated module avoids circular imports between the factory
 and the route / websocket modules that reference them.
+
+Production note
+---------------
+The in-memory storage backend is fine for single-process deployments
+(e.g. Render free tier). For multi-process Gunicorn with shared rate
+limiting, switch to ``redis://`` and add ``redis`` to requirements.
 """
 
 from flask_limiter import Limiter

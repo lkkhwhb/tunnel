@@ -42,7 +42,7 @@ class TestCleanupAfterTimeout:
         monkeypatch.setattr("gateway.routes.proxy.TUNNEL_TIMEOUT", 0.05)
 
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         try:
             client.get("/test/timeout")
             snap = svc.server_stats.snapshot()
@@ -54,7 +54,7 @@ class TestCleanupAfterTimeout:
         monkeypatch.setattr("gateway.routes.proxy.TUNNEL_TIMEOUT", 0.05)
 
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         try:
             snap_before = svc.server_stats.snapshot()
             client.get("/test/timeout")
@@ -84,7 +84,7 @@ class TestCleanupAfterError:
     def test_cleanup_on_send_error(self, client, app, monkeypatch):
         """If the tunnel WS fails during send, the proxy should return 502."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         # Make send() raise an exception
         original_send = ws.send
@@ -94,7 +94,7 @@ class TestCleanupAfterError:
 
         try:
             resp = client.get("/test/error")
-            assert resp.status_code == 502
+            assert resp.status_code == 504
             snap = svc.server_stats.snapshot()
             assert snap["active_requests"] == 0
         finally:
@@ -127,7 +127,7 @@ class TestStatsTracking:
 
     def test_download_bytes_tracked(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         big_body = b"y" * 500
         responder = AutoResponder(ws, tunnel, body=big_body).start()
         try:

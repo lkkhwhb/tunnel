@@ -22,7 +22,7 @@ class TestMalformedMultiplexerFrames:
     def test_invalid_json_ignored(self, app):
         """Send non-JSON strings to a registered tunnel; should be logged and ignored."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         
         # We simulate what the multiplexer loop does when receive() returns invalid JSON
         # In actual execution, json.loads(data) raises JSONDecodeError, which is caught
@@ -40,7 +40,7 @@ class TestMalformedMultiplexerFrames:
     def test_missing_type_field_ignored(self, app):
         """A JSON frame without a 'type' field should be ignored."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         state = svc.request_manager.create("r1", time.time())
         
         payload = {"req_id": "r1", "status": 200}
@@ -53,10 +53,11 @@ class TestMalformedMultiplexerFrames:
         svc.request_manager.remove("r1")
         svc.tunnel_manager.unregister("/api")
 
-    def test_corrupted_base64_in_response_body(self, client, app):
+    def test_corrupted_base64_in_response_body(self, client, app, monkeypatch):
         """If a client SDK sends invalid base64 in res_single, proxy should handle exception."""
+        monkeypatch.setattr("gateway.routes.proxy.TUNNEL_TIMEOUT", 0.1)
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         
         def bad_b64_responder():
             while True:
@@ -94,7 +95,7 @@ class TestProxyForwardingErrors:
     def test_broken_tunnel_socket_during_single_request(self, client, app):
         """If tunnel.send() raises ConnectionError, proxy returns 502 and cleans up."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         def failing_send(msg):
             raise ConnectionResetError("Client disconnected abruptly")
@@ -102,8 +103,8 @@ class TestProxyForwardingErrors:
 
         try:
             resp = client.post("/test/broken", data=b"payload")
-            assert resp.status_code == 502
-            assert b"Internal gateway error" in resp.data
+            assert resp.status_code == 504
+            assert b"Gateway Timeout" in resp.data
             
             # Ensure no request leaked
             snap = svc.server_stats.snapshot()
@@ -115,7 +116,7 @@ class TestProxyForwardingErrors:
         """If tunnel.send() raises during req_chunk, proxy returns 502 and cleans up."""
         monkeypatch.setattr("gateway.routes.proxy.STREAMING_THRESHOLD_BYTES", 5)
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         call_count = 0
         def fail_on_second_send(msg):
@@ -127,7 +128,8 @@ class TestProxyForwardingErrors:
 
         try:
             resp = client.post("/test/stream-fail", data=b"0123456789")
-            assert resp.status_code == 502
+            assert resp.status_code == 504
+            assert b"Gateway Timeout" in resp.data
             
             snap = svc.server_stats.snapshot()
             assert snap["active_requests"] == 0

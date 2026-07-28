@@ -10,6 +10,7 @@ import threading
 
 from tests.conftest import MockWebSocket
 from gateway.services.tunnel_manager import TunnelManager
+import time
 from gateway.services.heartbeat import HeartbeatService
 
 
@@ -47,7 +48,9 @@ class TestPingSending:
         ping_message = build_ping()
         for path, tunnel in mgr.snapshot():
             tunnel.send(ping_message)
-
+            
+        time.sleep(0.05)
+    
         assert ws1.sent_count == 1
         assert ws2.sent_count == 1
 
@@ -59,7 +62,7 @@ class TestTimeoutDetection:
         """A tunnel with last_active older than timeout should be reaped."""
         mgr = TunnelManager()
         ws = MockWebSocket()
-        tunnel = mgr.register("/api", ws, "10.0.0.1")
+        tunnel, _ = mgr.register("/api", ws, "10.0.0.1")
 
         # Simulate stale tunnel by backdating last_active
         tunnel.last_active = time.time() - 100  # 100s ago
@@ -78,7 +81,7 @@ class TestTimeoutDetection:
         """A recently active tunnel should survive the heartbeat."""
         mgr = TunnelManager()
         ws = MockWebSocket()
-        tunnel = mgr.register("/api", ws, "10.0.0.1")
+        tunnel, _ = mgr.register("/api", ws, "10.0.0.1")
         tunnel.touch()  # Just touched
 
         now = time.time()
@@ -91,8 +94,8 @@ class TestTimeoutDetection:
         """Reaping should remove dead tunnels from the manager."""
         mgr = TunnelManager()
         ws1, ws2 = MockWebSocket(), MockWebSocket()
-        t1 = mgr.register("/dead", ws1, "10.0.0.1")
-        t2 = mgr.register("/alive", ws2, "10.0.0.2")
+        t1, _ = mgr.register("/dead", ws1, "10.0.0.1")
+        t2, _ = mgr.register("/alive", ws2, "10.0.0.2")
 
         t1.last_active = time.time() - 100  # Stale
         t2.touch()  # Active
@@ -114,7 +117,7 @@ class TestFailedPing:
     def test_send_failure_marks_dead(self):
         mgr = TunnelManager()
         ws = MockWebSocket()
-        tunnel = mgr.register("/api", ws, "10.0.0.1")
+        tunnel, _ = mgr.register("/api", ws, "10.0.0.1")
 
         # Override send to raise
         original_send = ws.send
@@ -123,11 +126,11 @@ class TestFailedPing:
         from gateway.protocol.messages import build_ping
         dead = []
         for path, t in mgr.snapshot():
-            try:
-                t.send(build_ping())
-            except Exception:
+            t.send(build_ping())
+            time.sleep(0.05)
+            if getattr(t, "dead", False):
                 dead.append(path)
-
+    
         assert "/api" in dead
 
         ws.send = original_send
@@ -148,7 +151,7 @@ class TestHeartbeatServiceLifecycle:
         """After a tunnel is reaped, a new tunnel can take its path."""
         mgr = TunnelManager()
         ws1 = MockWebSocket()
-        t1 = mgr.register("/api", ws1, "10.0.0.1")
+        t1, _ = mgr.register("/api", ws1, "10.0.0.1")
         t1.last_active = time.time() - 100
 
         # Reap

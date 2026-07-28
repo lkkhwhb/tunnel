@@ -49,7 +49,7 @@ class TestBinaryPayload:
 
     def test_binary_response(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         binary_body = bytes(range(256))
         responder = AutoResponder(ws, tunnel, body=binary_body).start()
         try:
@@ -73,7 +73,7 @@ class TestUnicodePayload:
 
     def test_unicode_response(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         body = "Ñoño señor".encode("utf-8")
         responder = AutoResponder(ws, tunnel, body=body).start()
         try:
@@ -120,7 +120,7 @@ class TestJSONPayload:
 
     def test_json_response(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         json_body = json.dumps({"result": "success"}).encode()
         responder = AutoResponder(
             ws, tunnel, body=json_body,

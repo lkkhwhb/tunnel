@@ -17,3 +17,4 @@ Usage from any module::
 tunnel_manager = None   # type: ignore[assignment]
 request_manager = None  # type: ignore[assignment]
 server_stats = None     # type: ignore[assignment]
+send_executor = None    # type: ignore[assignment]

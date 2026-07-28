@@ -30,9 +30,11 @@ from gateway.protocol.messages import (
     build_req_end,
 )
 from gateway import services as svc
-from gateway.utils.log import get_logger
+from gateway.utils.log import get_logger, should_sample
+from gateway.config.settings import LOG_SAMPLE_RATE
+from gateway.utils.metrics import REQUESTS_TOTAL, REQUEST_LATENCY
 
-logger = get_logger()
+logger = get_logger(__name__)
 
 proxy_bp = Blueprint("proxy", __name__)
 
@@ -118,11 +120,22 @@ def catch_all_proxy(path):
 
             latency = req_state.compute_latency_ms()
             svc.server_stats.record_request_end(latency)
+            
+            # Prometheus metrics
+            status_code = getattr(req_state, "status", 500)
+            REQUESTS_TOTAL.labels(status=str(status_code)).inc()
+            REQUEST_LATENCY.observe(latency / 1000.0)
 
-            logger.info(
-                f"Request {req_id} completed in {latency:.2f}ms "
-                f"[{method} {full_path}]"
-            )
+            if should_sample(LOG_SAMPLE_RATE):
+                logger.info(
+                    "request_completed",
+                    extra={
+                        "req_id": req_id[:8],
+                        "latency_ms": round(latency, 2),
+                        "method": method,
+                        "path": full_path,
+                    },
+                )
 
     try:
         query_string = request.query_string.decode("utf-8")
@@ -170,7 +183,8 @@ def catch_all_proxy(path):
         # ------------------------------------------------------------------ #
         if not req_state.wait_for_headers(timeout=TUNNEL_TIMEOUT):
             logger.warning(
-                f"Timeout waiting for tunnel response on req_id: {req_id}"
+                "tunnel_response_timeout",
+                extra={"req_id": req_id[:8], "path": full_path},
             )
             return Response(
                 "Gateway Timeout: The local client did not respond in time.",
@@ -201,7 +215,8 @@ def catch_all_proxy(path):
                             yield chunk
                         except queue.Empty:
                             logger.warning(
-                                f"Queue timeout reading chunk for {req_id}"
+                                "chunk_queue_timeout",
+                                extra={"req_id": req_id[:8]},
                             )
                             break
                 finally:
@@ -214,7 +229,11 @@ def catch_all_proxy(path):
             )
 
     except Exception as e:
-        logger.error(f"Proxy routing error on req_id {req_id}: {e}")
+        logger.error(
+            "proxy_routing_error",
+            extra={"req_id": req_id[:8], "error": str(e)},
+            exc_info=True,
+        )
         return Response(f"Internal gateway error: {e}", status=502)
     finally:
         # If we returned a streaming generator, cleanup happens in the

@@ -40,10 +40,19 @@ class TestConstruction:
 class TestSend:
     """Verify thread-safe message sending."""
 
+    def _wait_for_send(self, tunnel):
+        timeout = time.time() + 1.0
+        while time.time() < timeout:
+            with tunnel.send_lock:
+                if not tunnel._is_sending:
+                    return
+            time.sleep(0.01)
+
     def test_send_delivers_message(self):
         ws = MockWebSocket()
         tunnel = TunnelConnection(ws, "10.0.0.1")
         tunnel.send('{"type": "ping"}')
+        self._wait_for_send(tunnel)
         assert ws.get_sent() == '{"type": "ping"}'
 
     def test_send_acquires_lock(self):
@@ -67,6 +76,7 @@ class TestSend:
         for t in threads:
             t.join(timeout=5)
 
+        self._wait_for_send(tunnel)
         assert ws.sent_count == 10
 
     def test_send_multiple_messages(self):
@@ -74,6 +84,7 @@ class TestSend:
         tunnel = TunnelConnection(ws, "10.0.0.1")
         for i in range(5):
             tunnel.send(f"msg-{i}")
+        self._wait_for_send(tunnel)
         assert ws.sent_count == 5
 
 

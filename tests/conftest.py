@@ -241,7 +241,7 @@ def registered_tunnel(app, mock_ws):
 
     The tunnel is automatically cleaned up after the test.
     """
-    tunnel = svc.tunnel_manager.register("/test", mock_ws, "127.0.0.1")
+    tunnel, _ = svc.tunnel_manager.register("/test", mock_ws, "127.0.0.1")
     yield tunnel, mock_ws
     svc.tunnel_manager.unregister("/test")
 
@@ -254,7 +254,7 @@ def tunnel_responder(app, mock_ws):
 
     Yields ``(tunnel, mock_ws, responder)``.
     """
-    tunnel = svc.tunnel_manager.register("/test", mock_ws, "127.0.0.1")
+    tunnel, _ = svc.tunnel_manager.register("/test", mock_ws, "127.0.0.1")
     responder = AutoResponder(mock_ws, tunnel).start()
     yield tunnel, mock_ws, responder
     responder.stop()
@@ -269,7 +269,7 @@ def streaming_responder(app):
     Yields ``(tunnel, mock_ws, responder)``.
     """
     ws = MockWebSocket()
-    tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+    tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
     responder = AutoResponder(
         ws, tunnel,
         streaming=True,

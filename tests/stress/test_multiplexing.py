@@ -23,7 +23,7 @@ class TestMultiplexedIsolation:
     def test_concurrent_requests_get_correct_responses(self, client, app):
         """Send 20 concurrent requests where the responder replies out of order."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         # We create a custom responder that replies with delay/random ordering
         stop_event = threading.Event()
@@ -84,7 +84,7 @@ class TestMultiplexedIsolation:
     def test_interleaved_streaming_and_single_requests(self, client, app):
         """Verify that streaming requests and single messages can interleave safely."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         stop_event = threading.Event()
 
         def mixed_responder():

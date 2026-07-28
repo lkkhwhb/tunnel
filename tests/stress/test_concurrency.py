@@ -25,7 +25,7 @@ class TestConcurrentRegistration:
 
         def register_worker(idx):
             barrier.wait()
-            tunnel = svc.tunnel_manager.register("/contested", sockets[idx], f"10.0.0.{idx}")
+            tunnel, _ = svc.tunnel_manager.register("/contested", sockets[idx], f"10.0.0.{idx}")
             results.append(tunnel)
 
         threads = [threading.Thread(target=register_worker, args=(i,)) for i in range(10)]
@@ -81,7 +81,7 @@ class TestConcurrentTrafficAndDisconnects:
     def test_disconnect_during_active_requests(self, client, app):
         """Simulate a tunnel unregistering while HTTP requests are actively waiting."""
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/unstable", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/unstable", ws, "127.0.0.1")
         
         # We start an auto-responder that replies slowly
         responder = AutoResponder(ws, tunnel).start()

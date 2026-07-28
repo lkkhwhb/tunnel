@@ -53,3 +53,21 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 32 * 1024))
 # Rate Limiting
 # ---------------------------------------------------------------------------
 RATE_LIMIT_DEFAULT = os.getenv("RATE_LIMIT_DEFAULT", "500 per minute")
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_SAMPLE_RATE = int(os.getenv("LOG_SAMPLE_RATE", 100))
+LOG_FORMAT = os.getenv("LOG_FORMAT", "json")
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
+# ---------------------------------------------------------------------------
+# Tunnel Ban (force-disconnect protection)
+# ---------------------------------------------------------------------------
+# Duration in seconds to block re-registration after admin force-disconnect.
+TUNNEL_BAN_DURATION = int(os.getenv("TUNNEL_BAN_DURATION", 300))

@@ -28,7 +28,7 @@ class TestSuccessfulRegistration:
 
     def test_tunnel_registered(self, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/api", ws, "10.0.0.1")
         assert tunnel is not None
         assert svc.tunnel_manager.count() == 1
         svc.tunnel_manager.unregister("/api")
@@ -118,8 +118,8 @@ class TestDuplicateRegistration:
 
     def test_duplicate_returns_none(self, app):
         ws1, ws2 = MockWebSocket(), MockWebSocket()
-        t1 = svc.tunnel_manager.register("/api", ws1, "10.0.0.1")
-        t2 = svc.tunnel_manager.register("/api", ws2, "10.0.0.2")
+        t1, _ = svc.tunnel_manager.register("/api", ws1, "10.0.0.1")
+        t2, _ = svc.tunnel_manager.register("/api", ws2, "10.0.0.2")
         assert t1 is not None
         assert t2 is None
         svc.tunnel_manager.unregister("/api")
@@ -128,7 +128,7 @@ class TestDuplicateRegistration:
         ws1, ws2 = MockWebSocket(), MockWebSocket()
         svc.tunnel_manager.register("/api", ws1, "10.0.0.1")
         svc.tunnel_manager.unregister("/api", ws=ws1)
-        t2 = svc.tunnel_manager.register("/api", ws2, "10.0.0.2")
+        t2, _ = svc.tunnel_manager.register("/api", ws2, "10.0.0.2")
         assert t2 is not None
         svc.tunnel_manager.unregister("/api")
 

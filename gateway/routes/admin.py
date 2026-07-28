@@ -18,6 +18,7 @@ import socket
 import threading
 import secrets
 import uuid
+import time
 
 import psutil
 from functools import wraps
@@ -30,6 +31,10 @@ from gateway.utils.auth import (
     verify_api_key, AuthError,
     add_dummy_api_key, remove_dummy_api_key, list_dummy_api_keys, clear_dummy_api_keys
 )
+from gateway.config.settings import TUNNEL_BAN_DURATION
+from gateway.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -41,6 +46,10 @@ try:
 except Exception:
     _process = None
 psutil.cpu_percent(interval=None)  # Initialize system baseline
+
+_health_cache = None
+_health_cache_time = 0.0
+_HEALTH_CACHE_TTL = 5.0
 
 
 def _is_request_authenticated() -> bool:
@@ -87,6 +96,24 @@ def admin_status():
 @limiter.exempt
 def admin_health():
     """Return system health metrics including CPU, memory, and process info."""
+    global _health_cache, _health_cache_time
+    
+    now = time.time()
+    if _health_cache and (now - _health_cache_time) < _HEALTH_CACHE_TTL:
+        # Update dynamic stats in the cached response
+        stats = svc.server_stats.snapshot()
+        is_auth = _is_request_authenticated()
+        real_count = svc.tunnel_manager.count()
+        _health_cache["active_tunnels"] = real_count if is_auth else "Hidden"
+        _health_cache["websocket_tunnel_count"] = _health_cache["active_tunnels"]
+        _health_cache["active_requests"] = stats["active_requests"]
+        _health_cache["total_requests"] = stats["total_requests"]
+        _health_cache["bytes_uploaded"] = stats["bytes_uploaded"]
+        _health_cache["bytes_downloaded"] = stats["bytes_downloaded"]
+        _health_cache["average_latency_ms"] = stats["average_latency_ms"]
+        _health_cache["server_uptime_seconds"] = stats["uptime_seconds"]
+        return jsonify(_health_cache)
+
     mem = psutil.virtual_memory()
     pid = os.getpid()
 
@@ -112,7 +139,7 @@ def admin_health():
     real_count = svc.tunnel_manager.count()
     active_tunnels_count = real_count if is_auth else "Hidden"
 
-    return jsonify({
+    response_dict = {
         "cpu_usage_percent": cpu_percent,
         "memory_usage_percent": mem.percent,
         "used_memory_bytes": mem.used,
@@ -128,7 +155,12 @@ def admin_health():
         "average_latency_ms": stats["average_latency_ms"],
         "server_uptime_seconds": stats["uptime_seconds"],
         "websocket_tunnel_count": active_tunnels_count,
-    })
+    }
+    
+    _health_cache = response_dict.copy()
+    _health_cache_time = time.time()
+    
+    return jsonify(response_dict)
 
 
 @admin_bp.route("/admin/info", methods=["GET"])
@@ -230,7 +262,7 @@ def admin_update_settings():
 @limiter.exempt
 @require_admin_key
 def admin_delete_tunnel():
-    """Disconnect and unregister an active tunnel by target path."""
+    """Disconnect and unregister an active tunnel by target path, with ban."""
     path = request.args.get("path")
     if not path:
         return jsonify({"error": "Missing 'path' parameter"}), 400
@@ -242,12 +274,52 @@ def admin_delete_tunnel():
     if not tunnel:
         return jsonify({"error": f"No active tunnel found at {path}"}), 404
 
+    # Ban the path BEFORE closing the WebSocket to prevent auto-reconnect
+    ban_duration = request.args.get("ban_duration", type=int, default=TUNNEL_BAN_DURATION)
+    svc.tunnel_manager.ban(path, ban_duration)
+
     try:
         tunnel.ws.close()
     except Exception:
         pass
     svc.tunnel_manager.unregister(path)
-    return jsonify({"status": "disconnected", "message": f"Tunnel {path} disconnected."})
+
+    logger.info(
+        "admin_tunnel_disconnected",
+        extra={"path": path, "ban_duration_s": ban_duration},
+    )
+
+    return jsonify({
+        "status": "disconnected",
+        "message": f"Tunnel {path} disconnected and banned for {ban_duration}s.",
+        "ban_duration_seconds": ban_duration,
+    })
+
+
+@admin_bp.route("/admin/tunnels/unban", methods=["POST"])
+@limiter.exempt
+@require_admin_key
+def admin_unban_tunnel():
+    """Remove the registration ban on a tunnel path."""
+    path = request.args.get("path") or (request.get_json(silent=True) or {}).get("path")
+    if not path:
+        return jsonify({"error": "Missing 'path' parameter"}), 400
+
+    if not path.startswith("/"):
+        path = "/" + path
+
+    if svc.tunnel_manager.unban(path):
+        return jsonify({"status": "unbanned", "message": f"Path {path} is now open for registration."})
+    return jsonify({"error": f"Path {path} is not currently banned"}), 404
+
+
+@admin_bp.route("/admin/tunnels/banned", methods=["GET"])
+@limiter.exempt
+@require_admin_key
+def admin_list_banned():
+    """List all currently banned tunnel paths."""
+    banned = svc.tunnel_manager.get_banned_paths()
+    return jsonify({"banned_paths": banned, "count": len(banned)})
 
 
 @admin_bp.route("/admin/stats/reset", methods=["POST"])
@@ -306,3 +378,12 @@ def admin_delete_key():
             "message": f"Dummy API key '{key}' removed from memory.",
         })
     return jsonify({"error": f"Dummy API key '{key}' not found"}), 404
+
+
+@admin_bp.route("/metrics", methods=["GET"])
+@limiter.exempt
+def metrics():
+    """Prometheus metrics endpoint."""
+    from gateway.utils.metrics import get_metrics_text
+    from flask import Response
+    return Response(get_metrics_text(), mimetype="text/plain")

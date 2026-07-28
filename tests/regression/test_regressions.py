@@ -50,13 +50,13 @@ class TestTunnelOwnershipRaceRegression:
         new_ws = MockWebSocket()
 
         # Old tunnel registers
-        t1 = svc.tunnel_manager.register("/production", old_ws, "10.0.0.1")
+        t1, _ = svc.tunnel_manager.register("/production", old_ws, "10.0.0.1")
         assert svc.tunnel_manager.get("/production") is t1
 
         # Simulate network blip where old tunnel disconnects and new tunnel registers immediately
         # (In practice, unregister without ws would blow away new tunnel if it happened out of order)
         svc.tunnel_manager.unregister("/production", ws=old_ws)
-        t2 = svc.tunnel_manager.register("/production", new_ws, "10.0.0.2")
+        t2, _ = svc.tunnel_manager.register("/production", new_ws, "10.0.0.2")
         assert svc.tunnel_manager.get("/production") is t2
 
         # Now suppose old WS's finally block executes delayed unregister with old_ws
@@ -76,7 +76,7 @@ class TestHeaderStrippingRegression:
 
     def test_case_insensitive_header_stripping(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         
         # SDK replies with weirdly cased restricted headers that could break WSGI if forwarded
         weird_headers = {
@@ -109,8 +109,8 @@ class TestPathMatchingBoundaryRegression:
         """/api should NOT match /api-v2/users, but MUST match /api/users."""
         ws1 = MockWebSocket()
         ws2 = MockWebSocket()
-        t1 = svc.tunnel_manager.register("/api", ws1, "10.0.0.1")
-        t2 = svc.tunnel_manager.register("/api-v2", ws2, "10.0.0.2")
+        t1, _ = svc.tunnel_manager.register("/api", ws1, "10.0.0.1")
+        t2, _ = svc.tunnel_manager.register("/api-v2", ws2, "10.0.0.2")
         
         r1 = AutoResponder(ws1, t1, body=b"from-api").start()
         r2 = AutoResponder(ws2, t2, body=b"from-api-v2").start()

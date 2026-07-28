@@ -35,7 +35,7 @@ class TestAdminWakeGuard:
         """The wake path is handled by its own blueprint, not the proxy."""
         # Even with a tunnel at /, wake should be handled by the wake bp
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/", ws, "127.0.0.1")
         responder = AutoResponder(ws, tunnel).start()
         try:
             resp = client.get("/wake")
@@ -179,7 +179,7 @@ class TestResponseHandling:
 
     def test_custom_status_code(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(ws, tunnel, status=201, body=b"Created").start()
         try:
             resp = client.post("/test/resource", data=b"new")
@@ -191,7 +191,7 @@ class TestResponseHandling:
 
     def test_custom_response_headers(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(
             ws, tunnel,
             headers={"X-Custom-Response": "yes", "Content-Type": "application/json"},
@@ -205,7 +205,7 @@ class TestResponseHandling:
 
     def test_404_response(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(ws, tunnel, status=404, body=b"Not Found").start()
         try:
             resp = client.get("/test/missing")
@@ -217,7 +217,7 @@ class TestResponseHandling:
 
     def test_500_response(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(ws, tunnel, status=500, body=b"Error").start()
         try:
             resp = client.get("/test/fail")
@@ -248,7 +248,7 @@ class TestTimeout:
         monkeypatch.setattr("gateway.routes.proxy.TUNNEL_TIMEOUT", 0.1)
 
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         # No responder → timeout
         try:
             resp = client.get("/test/timeout")
@@ -264,8 +264,8 @@ class TestLongestPrefixMatch:
     def test_longer_prefix_wins(self, client, app):
         ws1 = MockWebSocket()
         ws2 = MockWebSocket()
-        t1 = svc.tunnel_manager.register("/api", ws1, "127.0.0.1")
-        t2 = svc.tunnel_manager.register("/api/v2", ws2, "127.0.0.2")
+        t1, _ = svc.tunnel_manager.register("/api", ws1, "127.0.0.1")
+        t2, _ = svc.tunnel_manager.register("/api/v2", ws2, "127.0.0.2")
         r1 = AutoResponder(ws1, t1, body=b"v1").start()
         r2 = AutoResponder(ws2, t2, body=b"v2").start()
 

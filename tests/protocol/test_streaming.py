@@ -24,7 +24,7 @@ class TestStreamingRequestFrames:
         monkeypatch.setattr("gateway.routes.proxy.STREAMING_THRESHOLD_BYTES", 10)
 
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         # Create a responder that handles streaming
         responder = AutoResponder(ws, tunnel).start()
@@ -57,7 +57,7 @@ class TestStreamingResponseMode:
 
     def test_single_chunk_stream(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(
             ws, tunnel, streaming=True, chunks=[b"only-one"],
         ).start()
@@ -70,7 +70,7 @@ class TestStreamingResponseMode:
 
     def test_empty_stream(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         responder = AutoResponder(
             ws, tunnel, streaming=True, chunks=[],
         ).start()
@@ -83,7 +83,7 @@ class TestStreamingResponseMode:
 
     def test_many_small_chunks(self, client, app):
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
         chunks = [f"chunk-{i}".encode() for i in range(20)]
         responder = AutoResponder(
             ws, tunnel, streaming=True, chunks=chunks,
@@ -115,7 +115,7 @@ class TestStreamTimeout:
         monkeypatch.setattr("gateway.routes.proxy.TUNNEL_TIMEOUT", 0.1)
 
         ws = MockWebSocket()
-        tunnel = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
+        tunnel, _ = svc.tunnel_manager.register("/test", ws, "127.0.0.1")
 
         # Responder that sets headers but never sends chunks
         def stalling_run():

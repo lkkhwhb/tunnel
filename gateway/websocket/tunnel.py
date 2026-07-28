@@ -40,7 +40,7 @@ from gateway.utils.auth import verify_api_key, AuthError
 from gateway import services as svc
 from gateway.utils.log import get_logger
 
-logger = get_logger()
+logger = get_logger(__name__)
 
 
 def register_tunnel_handler(sock) -> None:
@@ -75,8 +75,8 @@ def register_tunnel_handler(sock) -> None:
         # ---- Validate Protocol Version ----
         if not protocol_version or protocol_version not in ("1.0", "1.1", "1.2", PROTOCOL_VERSION):
             logger.warning(
-                f"Registration failed from {client_ip}: "
-                f"Incompatible protocol version {protocol_version}"
+                "registration_failed_protocol",
+                extra={"client_ip": client_ip, "protocol_version": protocol_version},
             )
             ws.send(json.dumps({
                 "error": (
@@ -90,15 +90,18 @@ def register_tunnel_handler(sock) -> None:
         try:
             verify_api_key(api_key)
         except AuthError as e:
-            logger.warning(f"Auth failed for {client_ip}: {e.log_detail}")
+            logger.warning(
+                "auth_failed",
+                extra={"client_ip": client_ip, "reason": e.log_detail},
+            )
             ws.send(json.dumps({"error": e.client_message}))
             return
 
         # ---- Validate Required Parameters ----
         if not target_path:
             logger.warning(
-                f"Registration failed from {client_ip}: "
-                f"Missing target_path"
+                "registration_failed_missing_path",
+                extra={"client_ip": client_ip},
             )
             ws.send(json.dumps({"error": "Missing target_path"}))
             return
@@ -106,20 +109,24 @@ def register_tunnel_handler(sock) -> None:
         if not target_path.startswith("/"):
             target_path = "/" + target_path
 
-        # ---- Register Tunnel (prevents duplicates) ----
-        tunnel = svc.tunnel_manager.register(target_path, ws, client_ip)
+        # ---- Register Tunnel (prevents duplicates and banned paths) ----
+        tunnel, reject_reason = svc.tunnel_manager.register(target_path, ws, client_ip)
         if tunnel is None:
             logger.warning(
-                f"Duplicate registration attempt for "
-                f"{target_path} from {client_ip}"
+                "registration_rejected",
+                extra={"client_ip": client_ip, "target_path": target_path, "reason": reject_reason},
             )
-            ws.send(json.dumps({
-                "error": f"Tunnel path {target_path} is already in use.",
-            }))
+            error_msg = (
+                f"Tunnel path {target_path} is temporarily banned by admin."
+                if reject_reason == "path_banned"
+                else f"Tunnel path {target_path} is already in use."
+            )
+            ws.send(json.dumps({"error": error_msg}))
             return
 
         logger.info(
-            f"Tunnel secured & registered: {target_path} by {client_ip}"
+            "tunnel_registered",
+            extra={"target_path": target_path, "client_ip": client_ip},
         )
 
         # ---- Multiplexer Loop ----
@@ -135,8 +142,9 @@ def register_tunnel_handler(sock) -> None:
                 try:
                     payload = json.loads(data)
                 except json.JSONDecodeError:
-                    logger.warning(
-                        f"Received invalid JSON from {target_path}"
+                    logger.debug(
+                        "invalid_json_frame",
+                        extra={"target_path": target_path},
                     )
                     continue
 
@@ -184,6 +192,9 @@ def register_tunnel_handler(sock) -> None:
                     req_state.end_stream()
 
         except Exception as e:
-            logger.error(f"Tunnel WS Error [{target_path}]: {e}")
+            logger.error(
+                "tunnel_ws_error",
+                extra={"target_path": target_path, "error": str(e)},
+            )
         finally:
             svc.tunnel_manager.unregister(target_path, ws)
