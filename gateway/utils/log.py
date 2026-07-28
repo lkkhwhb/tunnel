@@ -105,6 +105,18 @@ class SensitiveFilter(logging.Filter):
                 )
         return True
 
+class PollingFilter(logging.Filter):
+    """Logging filter that silences noisy polling endpoints from access logs."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            if "GET /admin/health" in record.msg or "GET /admin/status" in record.msg:
+                return False
+        if hasattr(record, "args") and record.args and len(record.args) > 0:
+            req_path = str(record.args[0])
+            if "GET /admin/health" in req_path or "GET /admin/status" in req_path:
+                return False
+        return True
+
 
 # ---------------------------------------------------------------------------
 # JSON Formatter
@@ -197,8 +209,10 @@ def setup_logging() -> None:
         root.addHandler(handler)
 
         # Silence noisy third-party loggers in production
-        for noisy in ("werkzeug", "urllib3", "websocket", "engineio"):
-            logging.getLogger(noisy).setLevel(logging.WARNING)
+        for noisy in ("werkzeug", "urllib3", "websocket", "engineio", "gunicorn.access"):
+            logger_inst = logging.getLogger(noisy)
+            logger_inst.setLevel(logging.WARNING)
+            logger_inst.addFilter(PollingFilter())
 
         _configured = True
 

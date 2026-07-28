@@ -33,20 +33,13 @@ if __name__ == "__main__":
         },
     )
 
-    if ENVIRONMENT == "development" or sys.platform == "win32":
-        # Development: Flask's built-in server
-        logger.info("using_flask_dev_server")
+    try:
+        from waitress import serve
+        logger.info("using_waitress_server", extra={"server": "production"})
+        serve(app, host=HOST, port=PORT, threads=8)
+    except ImportError:
+        logger.warning(
+            "waitress_not_available_using_flask_dev",
+            extra={"hint": "Install waitress or use gunicorn for production"},
+        )
         app.run(host=HOST, port=PORT, threaded=True)
-    else:
-        # Production fallback when not launched via Gunicorn/Procfile
-        try:
-            from waitress import serve
-
-            logger.info("using_waitress_server")
-            serve(app, host=HOST, port=PORT, threads=8)
-        except ImportError:
-            logger.warning(
-                "waitress_not_available_using_flask_dev",
-                extra={"hint": "Install waitress or use gunicorn for production"},
-            )
-            app.run(host=HOST, port=PORT, threaded=True)

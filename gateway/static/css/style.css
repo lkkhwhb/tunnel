@@ -99,6 +99,7 @@ html {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
 }
 
 body {
@@ -109,6 +110,7 @@ body {
     background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
     background-size: 40px 40px;
     background-attachment: fixed;
+    overflow-x: hidden;
 }
 
 code, pre {
