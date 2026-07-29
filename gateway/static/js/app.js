@@ -132,11 +132,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isOpen || forceClose) {
             headerControls.classList.remove("open");
             if(mobileMenuBackdrop) mobileMenuBackdrop.classList.remove("open");
-            document.body.style.overflow = "";
+            document.body.classList.remove("menu-open");
         } else {
             headerControls.classList.add("open");
             if(mobileMenuBackdrop) mobileMenuBackdrop.classList.add("open");
-            document.body.style.overflow = "hidden";
+            document.body.classList.add("menu-open");
         }
     }
 
@@ -335,9 +335,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td class="bytes-cell" data-label="Data Downloaded">${formatBytes(tunnel.bytes_downloaded || 0)}</td>
                 <td class="time-cell" data-label="Connected Since">${uptimeStr} ago</td>
                 <td class="text-right" data-label="Actions">
-                    <button class="btn btn-danger-outline btn-sm disconnect-tunnel-btn" data-path="${path}" title="Disconnect Tunnel">
-                        <i class="bi bi-x-circle-fill"></i> Disconnect
-                    </button>
+                    <div class="tunnel-actions">
+                        <a href="${path}" target="_blank" rel="noopener" class="btn btn-primary btn-sm visit-tunnel-btn" title="Open ${path} in new tab">
+                            <i class="bi bi-box-arrow-up-right"></i> Visit
+                        </a>
+                        <button class="btn btn-danger-outline btn-sm disconnect-tunnel-btn" data-path="${path}" title="Disconnect Tunnel">
+                            <i class="bi bi-x-circle-fill"></i> Disconnect
+                        </button>
+                    </div>
                 </td>
             `;
 

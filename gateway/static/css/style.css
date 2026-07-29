@@ -310,7 +310,9 @@ input:checked + .slider:before {
     background: transparent;
     color: var(--text-secondary);
     font-size: 1rem;
+    border: none;
     border-radius: var(--radius-md);
+    cursor: pointer;
 }
 .btn-icon-only:hover {
     background: var(--bg-surface-hover);
@@ -612,6 +614,17 @@ html.dark .card-icon.amber { color: #fcd34d; border-color: rgba(252, 211, 77, 0.
 }
 
 .text-right { text-align: right; }
+
+.tunnel-actions {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+a.btn {
+    text-decoration: none;
+}
 
 /* Empty State */
 .empty-state {
@@ -982,6 +995,14 @@ html.dark .unauth-overlay {
 .toast.success i { color: var(--accent-emerald); }
 .toast.error i { color: var(--accent-coral); }
 
+body.menu-open {
+    overflow: hidden !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    position: fixed;
+    width: 100%;
+}
+
 /* Responsive Adjustments (Mobile First UI) */
 @media (max-width: 768px) {
     /* Header & Mobile Menu */
@@ -1004,6 +1025,7 @@ html.dark .unauth-overlay {
         width: 80%;
         max-width: 320px;
         height: 100vh;
+        height: 100dvh;
         background: var(--bg-surface);
         box-shadow: -4px 0 24px rgba(0,0,0,0.1);
         display: flex;
@@ -1013,24 +1035,30 @@ html.dark .unauth-overlay {
         gap: 20px;
         transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         z-index: 1001;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .header-controls.open {
         right: 0;
     }
 
-    .mobile-menu-header {
+    .header-controls .mobile-menu-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: 8px;
+        flex-shrink: 0;
     }
-    .mobile-menu-header h3 {
+    .header-controls .mobile-menu-header h3 {
         font-size: 1.1rem;
         font-weight: 600;
         color: var(--text-primary);
+    }
+    .header-controls .mobile-menu-header .btn-icon-only {
+        border: none;
+        outline: none;
+        box-shadow: none;
     }
 
     .mobile-menu-backdrop {

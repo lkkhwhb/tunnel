@@ -72,8 +72,7 @@ def register_tunnel_handler(sock) -> None:
         protocol_version = request.args.get("protocol_version")
         client_ip = request.remote_addr
 
-        # ---- Validate Protocol Version ----
-        if not protocol_version or protocol_version not in ("1.0", "1.1", "1.2", PROTOCOL_VERSION):
+        if not protocol_version or protocol_version != PROTOCOL_VERSION:
             logger.warning(
                 "registration_failed_protocol",
                 extra={"client_ip": client_ip, "protocol_version": protocol_version},

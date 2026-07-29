@@ -119,12 +119,15 @@ def admin_health():
 
     proc_cpu = 0.0
     thread_count = threading.active_count()
+    used_memory_bytes = mem.used
+
     if _process:
         try:
             # Divided by core_count so process cpu scales 0-100% like sys_cpu
             core_count = psutil.cpu_count() or 1
             proc_cpu = _process.cpu_percent(interval=None) / core_count
             thread_count = _process.num_threads()
+            used_memory_bytes = _process.memory_info().rss
         except Exception:
             pass
 
@@ -134,6 +137,15 @@ def admin_health():
     # We take the max of system and process CPU to ensure it's always accurate.
     cpu_percent = round(max(sys_cpu, proc_cpu), 1)
 
+    # Use a practical quota (e.g. 500MB for free tiers) or fallback to 500MB
+    try:
+        quota_mb = int(os.environ.get("SERVER_MEMORY_QUOTA_MB", "500"))
+    except ValueError:
+        quota_mb = 500
+    
+    total_memory_bytes = quota_mb * 1024 * 1024
+    memory_usage_percent = round((used_memory_bytes / total_memory_bytes) * 100, 1)
+
     stats = svc.server_stats.snapshot()
     is_auth = _is_request_authenticated()
     real_count = svc.tunnel_manager.count()
@@ -141,9 +153,9 @@ def admin_health():
 
     response_dict = {
         "cpu_usage_percent": cpu_percent,
-        "memory_usage_percent": mem.percent,
-        "used_memory_bytes": mem.used,
-        "total_memory_bytes": mem.total,
+        "memory_usage_percent": memory_usage_percent,
+        "used_memory_bytes": used_memory_bytes,
+        "total_memory_bytes": total_memory_bytes,
         "thread_count": thread_count,
         "process_id": pid,
         "python_thread_count": threading.active_count(),
